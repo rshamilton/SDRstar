@@ -1,0 +1,12 @@
+build/
+build-*/
+*.o
+*.a
+*.dylib
+*.so
+.DS_Store
+*.pcm
+*.dmg
+/dist/
+/.deps/
+__pycache__/

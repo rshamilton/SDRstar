@@ -1,0 +1,66 @@
+diff --git a/source_modules/rtl_sdr_source/src/main.cpp b/source_modules/rtl_sdr_source/src/main.cpp
+index c39a941..60824e5 100644
+--- a/source_modules/rtl_sdr_source/src/main.cpp
++++ b/source_modules/rtl_sdr_source/src/main.cpp
+@@ -229,9 +229,10 @@ public:
+             ppm = config.conf["devices"][selectedDevName]["ppm"];
+         }
+ 
+-        if (config.conf["devices"][selectedDevName].contains("biasT")) {
+-            biasT = config.conf["devices"][selectedDevName]["biasT"];
+-        }
++        // SDRstar safety: the bias tee (4.5 V DC on the antenna port) is NEVER restored from a saved
++        // config. It is off at every launch and must be re-enabled deliberately.
++        biasT = false;
++        config.conf["devices"][selectedDevName]["biasT"] = false;
+ 
+         if (config.conf["devices"][selectedDevName].contains("offsetTuning")) {
+             offsetTuning = config.conf["devices"][selectedDevName]["offsetTuning"];
+@@ -337,6 +338,10 @@ private:
+         rtlsdr_cancel_async(_this->openDev);
+         if (_this->workerThread.joinable()) { _this->workerThread.join(); }
+         _this->stream.clearWriteStop();
++        // SDRstar safety: never leave the bias tee powered after we let go of the dongle.
++        rtlsdr_set_bias_tee(_this->openDev, 0);
++        _this->biasT = false;
++        _this->biasTAck = false;
+         rtlsdr_close(_this->openDev);
+         flog::info("RTLSDRSourceModule '{0}': Stop!", _this->name);
+     }
+@@ -471,16 +476,27 @@ private:
+         
+         if (_this->tunerAgc || _this->gainList.size() == 0) { SmGui::EndDisabled(); }
+ 
++        // SDRstar safety: the bias tee puts 4.5 V DC on the antenna connector. Harmless for a normal antenna, but it
++        // can damage a DC-shorted antenna or a device that is not expecting power. Off by default, never remembered.
++        if (!_this->biasT) {
++            SmGui::Checkbox(CONCAT("I need Bias T (4.5 V DC on the antenna port)##_rtlsdr_biast_ack_", _this->name), &_this->biasTAck);
++        }
++        if (!_this->biasT && !_this->biasTAck) { SmGui::BeginDisabled(); }
+         if (SmGui::Checkbox(CONCAT("Bias T##_rtlsdr_rtl_biast_", _this->name), &_this->biasT)) {
+             if (_this->running) {
+                 rtlsdr_set_bias_tee(_this->openDev, _this->biasT);
+             }
++            if (!_this->biasT) { _this->biasTAck = false; }
+             if (_this->selectedDevName != "") {
+                 config.acquire();
+-                config.conf["devices"][_this->selectedDevName]["biasT"] = _this->biasT;
++                config.conf["devices"][_this->selectedDevName]["biasT"] = false;  // never persisted as ON
+                 config.release(true);
+             }
+         }
++        if (!_this->biasT && !_this->biasTAck) { SmGui::EndDisabled(); }
++        if (_this->biasT) {
++            SmGui::TextColored(ImVec4(1.0f, 0.7f, 0.2f, 1.0f), "Bias T is ON: 4.5 V on the antenna port");
++        }
+ 
+         if (SmGui::Checkbox(CONCAT("Offset Tuning##_rtlsdr_rtl_ofs_", _this->name), &_this->offsetTuning)) {
+             if (_this->running) {
+@@ -564,6 +580,7 @@ private:
+     int ppm = 0;
+ 
+     bool biasT = false;
++    bool biasTAck = false;
+ 
+     int gainId = 0;
+     std::vector<int> gainList;

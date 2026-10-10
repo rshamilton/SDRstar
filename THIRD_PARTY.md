@@ -1,0 +1,39 @@
+# Third-party software and data
+
+SDRstar is licensed GPL-3.0-or-later (see `LICENSE`) because it is a derivative of SDR++ (GPL-3.0).
+It builds on, bundles, or runs the following projects. Each keeps its own license; their source is available at
+the URLs below at the exact commits pinned in `versions.env`.
+
+| Component | License | Use |
+| --- | --- | --- |
+| [SDR++](https://github.com/AlexandreRouma/SDRPlusPlus) v1.3.0 | GPL-3.0 | The application SDRstar extends (GUI, DSP, sources, audio). |
+| [DSD-neo](https://github.com/arancormonk/dsd-neo) | GPL-3.0-or-later | Digital voice / control channel decoder, run as a child process. Derived from DSD-FME and the original DSD. |
+| [mbelib-neo](https://github.com/arancormonk/mbelib-neo) | GPL-2.0-or-later (portions ISC) | IMBE/AMBE vocoder used by DSD-neo. **Patent notice below.** |
+| [librtlsdr](https://github.com/osmocom/rtl-sdr) 2.0.3 | GPL-2.0-or-later | RTL-SDR USB driver (includes RTL-SDR Blog V4 support). |
+| [libusb](https://libusb.info) | LGPL-2.1-or-later | USB access for librtlsdr. |
+| [multimon-ng](https://github.com/EliasOenal/multimon-ng) | GPL-2.0-or-later | POCSAG / FLEX / AFSK / DTMF / EAS decoding. |
+| [rtl_433](https://github.com/merbanan/rtl_433) | GPL-2.0-or-later | 433/315/868/915 MHz ISM sensor decoding. |
+| [VOLK](https://github.com/gnuradio/volk), FFTW, GLFW, PortAudio, zstd | LGPL/GPL/zlib/MIT-style | Libraries used by SDR++. |
+| [nlohmann/json](https://github.com/nlohmann/json) 3.9.0 | MIT | JSON parsing (vendored header, `core/third_party/nlohmann`). |
+
+## Vocoder patent notice
+
+The IMBE/AMBE speech codecs used for P25, DMR, NXDN, D-STAR and similar digital voice are covered by patents in some
+countries (the original mbelib notice reads: *"Executable objects compiled or derived from this package may be covered
+by one or more patents. Readers are strongly advised to check for any patent restrictions or licensing requirements
+before compiling or using this source code."*). Receiving and listening for personal use is common amateur/hobbyist
+practice, but you are responsible for checking the rules where you live.
+
+## Sample recordings used by the tests
+
+* 48 kHz I/Q fixtures are taken from the DSD-neo repository (`tests/fixtures/iq`, GPL-3.0-or-later). That project
+  derives them from public recordings (mainly the Signal Identification Wiki, https://www.sigidwiki.com, and the
+  m17-fme project) — see its `THIRD_PARTY.md` and `tools/build_iq_fixtures.py` for per-file provenance.
+* Additional recordings and their verification notes are listed in `docs/TESTING.md`.
+
+## Legal note
+
+Receiving radio signals is legal in most places, but laws differ about *what* you may listen to and what you may do
+with what you hear (for example, interception rules for certain services, or recording and publishing
+conversations). SDRstar does not decrypt encrypted traffic. You are responsible for following the laws that apply to
+you.
