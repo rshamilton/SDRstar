@@ -15,7 +15,14 @@
 #include <chrono>
 #include <cstring>
 
+#ifdef __APPLE__
+// `environ` cannot be linked from a dylib/plug-in on macOS (see environ(7)); ask the runtime instead.
+#include <crt_externs.h>
+#define SDRSTAR_ENVIRON (*_NSGetEnviron())
+#else
 extern char** environ;
+#define SDRSTAR_ENVIRON environ
+#endif
 
 namespace sdrstar {
 
@@ -75,7 +82,7 @@ bool Subprocess::start(const Options& opt, std::string& error) {
     std::vector<std::string> envStrings;
     {
         std::map<std::string, std::string> env;
-        for (char** e = environ; e && *e; ++e) {
+        for (char** e = SDRSTAR_ENVIRON; e && *e; ++e) {
             const char* eq = std::strchr(*e, '=');
             if (eq) { env[std::string(*e, eq - *e)] = eq + 1; }
         }
