@@ -108,8 +108,12 @@ public:
         return true;
     }
     void closeChannel(int ch) override {
-        std::lock_guard<std::mutex> lk(mtx_);
-        channels_.erase(ch);
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            channels_.erase(ch);
+        }
+        // Like the real host: when this returns, no sample block for the channel is still being delivered.
+        std::lock_guard<std::recursive_mutex> wait(deliverMtx_);
     }
 
     std::vector<TuneRecord> tunes() {
@@ -139,6 +143,7 @@ private:
         while (!stop_.load()) {
             next += std::chrono::milliseconds(20);
             std::this_thread::sleep_until(next);
+            std::lock_guard<std::recursive_mutex> deliverGuard(deliverMtx_);   // held across compute + delivery
             std::vector<std::pair<IqSinkFn, std::vector<cf>>> deliveries;
             {
                 std::lock_guard<std::mutex> lk(mtx_);
@@ -197,6 +202,7 @@ private:
     std::chrono::steady_clock::time_point t0_;
     std::thread pump_;
     std::mutex mtx_;
+    std::recursive_mutex deliverMtx_;
     std::vector<Signal> signals_;
     std::map<int, Chan> channels_;
     std::vector<TuneRecord> tunes_;

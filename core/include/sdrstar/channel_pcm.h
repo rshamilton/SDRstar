@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -39,22 +40,30 @@ public:
     void muteForMs(int ms);
 
     // Level of the last block, 0..1 (RMS of discriminator output / full scale) -- cheap activity indicator.
-    float lastLevel() const { return level_.load(); }
-    long long samplesSeen() const { return seen_.load(); }
+    float lastLevel() const { return sh_->level.load(); }
+    long long samplesSeen() const { return sh_->seen.load(); }
 
 private:
-    void onIq(const cf* x, size_t n);
+    // Everything the host's DSP thread touches lives in a reference-counted block that the channel callback owns a
+    // share of (not a pointer to the tap), so a block delivered by a host just AFTER closeChannel() returns can never
+    // touch a destroyed tap.  (The SDR++ host joins its DSP thread in closeChannel; a simulator or a future host
+    // might not.)
+    struct Shared {
+        std::mutex mtx;                  // guards everything below except the atomics
+        std::vector<PcmSink> sinks;
+        FmDiscriminator disc{48000.0, 6250.0};
+        std::vector<int16_t> pcm;
+        bool closed = false;
+        std::atomic<long long> muteUntilNs{0};
+        std::atomic<float> level{0};
+        std::atomic<long long> seen{0};
+    };
+    static void onIq(Shared& sh, const cf* x, size_t n);
 
     RadioHost* host_ = nullptr;
     int channel_ = -1;
     std::atomic<double> freq_{0};
-    FmDiscriminator disc_{48000.0, 6250.0};
-    std::vector<int16_t> pcm_;
-    std::mutex sinkMtx_;
-    std::vector<PcmSink> sinks_;
-    std::atomic<long long> muteUntilNs_{0};
-    std::atomic<float> level_{0};
-    std::atomic<long long> seen_{0};
+    std::shared_ptr<Shared> sh_ = std::make_shared<Shared>();
 };
 
 }  // namespace sdrstar

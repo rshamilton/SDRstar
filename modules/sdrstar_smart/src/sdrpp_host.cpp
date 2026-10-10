@@ -152,8 +152,9 @@ void SdrppRadioHost::closeChannel(int channel) {
         c = std::move(it->second);
         chans_.erase(it);
     }
-    c->sink = nullptr;
+    // Stop (and join) the DSP-thread handler FIRST: only then is nothing running inside `sink`, so it can be released.
     c->handler.stop();
+    c->sink = nullptr;
     sigpath::iqFrontEnd.removeVFO(c->name);
 }
 
