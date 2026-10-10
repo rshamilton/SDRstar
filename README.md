@@ -7,7 +7,8 @@ decodes it, and follows trunked radio systems from the control channel to the ta
 > **Status, honestly.** Everything that can be tested without a radio has been: the logic, the decoders on real
 > recordings, the whole GUI under a virtual display, the trunk follower on real recorded P25 traffic. What has **not**
 > been done by anyone yet is running the finished `.app` on a real Mac with a real RTL-SDR plugged in (the build
-> environment has neither). Read [docs/TESTING.md](docs/TESTING.md) for exactly what was and was not verified.
+> environment has neither; GitHub's Mac machines build the app and check that it loads and starts, but have no radio
+> and no display). Read [docs/TESTING.md](docs/TESTING.md) for exactly what was and was not verified.
 
 ## What you get
 
@@ -73,8 +74,8 @@ messages mean, the settings, and the channel-list files DMR / NXDN / EDACS syste
 ## Safety
 
 The RTL-SDR can only receive; SDRstar has no transmit code. The bias tee is always off at launch and needs a
-deliberate tick every time. Decoders run as separate, sandboxed-by-design helper processes that cannot touch the USB
-radio. [docs/SAFETY.md](docs/SAFETY.md) lists every protection, how each was checked, and the physical precautions
+deliberate tick every time. Decoders run as separate helper processes, each in its own working folder, built so they cannot
+touch the USB radio. [docs/SAFETY.md](docs/SAFETY.md) lists every protection, how each was checked, and the physical precautions
 software cannot provide.
 
 ## How it is built
