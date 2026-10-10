@@ -102,8 +102,8 @@ The repository is private, so macOS minutes are billed at 10x. The expensive job
 | Job | Runs | Cost | What |
 | --- | --- | --- | --- |
 | `plan` | always | ~0 | reads the trigger / head commit message, decides which macOS builds run |
-| `linux` | every push | 1x | shellcheck + syntax checks; builds mbelib-neo and DSD-neo at the pinned commits against apt libraries; builds `core/` and runs **all** tests including the DSD-neo integration tests; runs `test_bundler_logic.sh` |
-| `linux-recipes` | every push | 1x | dry run of the macOS recipes on Linux: `build_deps.sh`, `build_helpers.sh`, helper tests, core tests against that helper, and `build_sdrpp.sh` (so CMake flags, the module list and the `sdrstar_smart` module are compiled before any macOS minute is spent) |
+| `linux` | every push | 1x | shellcheck + syntax checks; builds mbelib-neo and DSD-neo at the pinned commits against apt libraries; builds `core/` and runs **all** tests including the DSD-neo integration tests (and, when the download works, the real-recording sensor / ADS-B tests: `tools/fetch_test_samples.sh`); runs the **safety audit** (`scripts/safety_audit.sh`) and the core tests under **ThreadSanitizer** (`scripts/ci_tsan.sh`); runs `test_bundler_logic.sh` |
+| `linux-recipes` | every push | 1x | dry run of the macOS recipes on Linux: `build_deps.sh`, `build_helpers.sh`, helper tests, core tests against that helper, and `build_sdrpp.sh` (so CMake flags, the module list and the `sdrstar_smart` module are compiled before any macOS minute is spent), then audits the patched SDR++ tree with `safety_audit.sh` |
 | `mac` (matrix) | see below | 10x | the real build, one leg per architecture, `fail-fast: false`, needs `linux` and `linux-recipes` to be green |
 | `release` | both `mac` legs green | 1x | refreshes the `nightly` pre-release |
 
