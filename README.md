@@ -30,6 +30,20 @@ decodes it, and follows trunked radio systems from the control channel to the ta
   (weather stations, tyre-pressure sensors, utility meters ... 200+ device types) and **aircraft (ADS-B, 1090 MHz)** with
   callsign, altitude, speed, heading, climb rate and position.
 
+## What it looks like
+
+These are real screenshots of the finished app, taken on a Linux test machine with a virtual display while it played
+recorded radio signals (no radio hardware involved). The waterfall colour levels are SDR++'s defaults, untuned.
+
+| | |
+| --- | --- |
+| ![A P25 control channel identified automatically, with the Follow button](docs/img/identify-p25.png) | ![Following a trunked system: plain-English status and counters](docs/img/follow-card.png) |
+| **Identified automatically.** The card says what the signal is (P25 Phase 1 control channel, system details) and offers **Follow trunked system**. | **Following.** Status in plain words. Here the recording cannot retune, so the card says exactly why a call cannot be followed. |
+| ![Following paused because the user moved the receiver window](docs/img/follow-paused.png) | ![Pager messages decoded from a real recording](docs/img/pager-messages.png) |
+| **You moved the radio away?** Following pauses, says so, and offers **Return to control channel**. | **Pager messages**, decoded from a real POCSAG recording. |
+| ![433 MHz sensor readings decoded from a real recording](docs/img/sensor-messages.png) | ![An aircraft decoded from ADS-B](docs/img/aircraft.png) |
+| **Sensors** (weather stations and the like): repeated copies of a message are shown once with a count. | **Aircraft (ADS-B)**: callsign, altitude, speed, heading, climb rate, position. |
+
 ## Install (no commands)
 
 Short version: download `SDRstar-AppleSilicon.dmg` (M1/M2/M3/M4 Macs) or `SDRstar-Intel.dmg`, open it, drag SDRstar
