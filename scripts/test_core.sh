@@ -40,6 +40,12 @@ export SDRSTAR_DSD_NEO="$DSD" SDRSTAR_FIXTURES="$FIX"
 helper_dir="$(dirname "$DSD")"
 if [ -x "$helper_dir/multimon-ng" ]; then export SDRSTAR_MULTIMON="$helper_dir/multimon-ng"; fi
 if [ -x "$helper_dir/rtl_433" ]; then export SDRSTAR_RTL433="$helper_dir/rtl_433"; fi
+# Optional public recordings (a 433 MHz sensor capture and an ADS-B capture, pinned to exact upstream commits and checked
+# against a SHA-256; see tools/fetch_test_samples.sh) make the sensor and aircraft decoder tests use REAL signals.  A
+# failed download only means those tests report "(skipped)".
+if have curl && [ -x "$ROOT/tools/fetch_test_samples.sh" ]; then
+    "$ROOT/tools/fetch_test_samples.sh" || warn "optional test recordings could not be fetched; their tests will be skipped"
+fi
 # Tests must not see dyld overrides either: dsd-neo has to resolve its libraries through its own rpath.
 unset DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH DYLD_FRAMEWORK_PATH DYLD_INSERT_LIBRARIES
 ctest_rc=0
