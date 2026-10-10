@@ -55,7 +55,7 @@ Only if you prefer. You need the Xcode Command Line Tools and two small build to
 installing anything** and tells you the exact command; it never installs anything on its own.
 
 ```sh
-git clone https://github.com/rshamilton/SDRstar.git
+git clone https://github.com/rshamilton/SDRstar.git     # the repository is private: Git will ask you to log in to GitHub
 cd SDRstar
 git checkout claude/awesome-newton-b30toa
 scripts/build_mac.sh        # 30-60 minutes the first time
