@@ -122,6 +122,7 @@ private:
         sdrstar::ProbeVerdict verdict;
         double whenSec = 0;
         double bwHz = 0;
+        double freqHz = 0;   // the exact frequency this result was established for (NOT whatever the cursor / another job is on now)
     };
 
     void onSpectrum(const float* db, int bins, double center, double span);

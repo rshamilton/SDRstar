@@ -268,6 +268,7 @@ void SmartEngine::pollProbe(double now) {
     r.verdict = p.best;
     r.whenSec = now;
     r.bwHz = 12500;
+    r.freqHz = jobFreq_;
     results_[keyFor(jobFreq_)] = r;
     if (p.best.claimed) {
         std::lock_guard<std::mutex> lk(detMtx_);
@@ -373,7 +374,7 @@ void SmartEngine::stopJob() {
 
 void SmartEngine::startFollow(const StoredResult& r) {
     if (dsdPath_.empty()) { return; }
-    const double freq = jobFreq_ > 0 && job_ == JobKind::Probing ? jobFreq_ : snapFrequency(cursorFreq_, cursorBw_);
+    const double freq = r.freqHz > 0 ? r.freqHz : snapFrequency(cursorFreq_, cursorBw_);
     stopJob();
     TrunkFollower::Config c;
     c.dsdExe = dsdPath_;
@@ -402,7 +403,7 @@ void SmartEngine::startFollow(const StoredResult& r) {
 
 void SmartEngine::startDecode(const StoredResult& r) {
     if (dsdPath_.empty()) { return; }
-    const double freq = snapFrequency(cursorFreq_, cursorBw_);
+    const double freq = r.freqHz > 0 ? r.freqHz : snapFrequency(cursorFreq_, cursorBw_);
     stopJob();
     ChannelDecoder::Config c;
     c.dsdExe = dsdPath_;
