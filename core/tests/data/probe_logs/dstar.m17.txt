@@ -1,0 +1,19 @@
+01:14:16 Sync: -M17 LSF  CRC ERR
+01:14:16 Sync: -M17 PKT  CNT: 00; LST: 12; EOT: 1; (CRC ERR) 
+01:14:16 Sync: -M17 BRT 
+01:14:16 Sync: +M17 LSF  CRC ERR
+01:14:16 Sync: +M17 STR LICH G24 ERR
+01:14:16 Sync: -M17 LSF  CRC ERR
+01:14:16 Sync: -M17 PKT  CNT: 00; LST: 20; EOT: 1; (CRC ERR) 
+01:14:16 Sync: -M17 BRT 
+01:14:16 Sync: -M17 LSF  CRC ERR
+01:14:16 Sync: -M17 PKT  PKT metadata invalid;
+Sync: no sync
+01:14:17 Sync: +M17 LSF  CRC ERR
+01:14:17 Sync: +M17 PKT  CNT: 00; LST: 13; EOT: 1; (CRC ERR) 
+Sync: no sync
+01:14:17 Sync: +M17 BRT 
+01:14:17 Sync: +M17 BRT 
+01:14:17 Sync: +M17 BRT 
+01:14:17 Sync: +M17 LSF  CRC ERR
+01:14:17 Sync: +M17 PKT  CNT: 00; LST: 19; EOT: 1; (CRC ERR) 

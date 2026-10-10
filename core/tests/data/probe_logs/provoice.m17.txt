@@ -1,0 +1,9 @@
+01:14:27 Sync: -M17 BRT 
+01:14:27 Sync: -M17 LSF  CRC ERR
+01:14:27 Sync: -M17 PKT  PKT counter mismatch: expected 00 got 20;
+Sync: no sync
+01:14:27 Sync: +M17 LSF  CRC ERR
+01:14:27 Sync: +M17 PKT  PKT counter mismatch: expected 00 got 28;
+01:14:27 Sync: +M17 BRT 
+01:14:27 Sync: +M17 BRT 
+Sync: no sync

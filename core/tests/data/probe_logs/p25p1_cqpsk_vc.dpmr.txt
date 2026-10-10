@@ -1,0 +1,3 @@
+01:13:59 Sync: +dPMR  dPMR Frame Sync 2 
+ TG=(CRC ERR) Src=(CRC ERR) Channel Code =(CRC ERR)
+Sync: no sync

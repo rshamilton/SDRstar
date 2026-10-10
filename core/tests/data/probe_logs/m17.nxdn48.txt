@@ -1,0 +1,5 @@
+01:14:22 Sync: NXDN48  RDCH Data           FACCH2
+01:14:22 Sync: JPN DCR Data  SACCH (CRC ERR)
+01:14:22 Sync: NXDN48  RDCH Data          PF X/4
+01:14:22 Sync: NXDN48  RTCH Data          PF X/1 IDLE
+01:14:22 Sync: IDAS D  RTCH2 V2+F1  SCCH

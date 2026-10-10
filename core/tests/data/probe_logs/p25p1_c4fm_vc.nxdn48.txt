@@ -1,0 +1,3 @@
+01:13:54 Sync: NXDN48  RDCH V2+F1         PF X/4
+01:13:54 Sync: NXDN48  RDCH V1+F2         PF X/4
+01:13:55 Sync: NXDN48  RDCH Data           FACCH2

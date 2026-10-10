@@ -1,0 +1,14 @@
+01:14:11 Sync: +dPMR  dPMR Frame Sync 2 
+ TG=(CRC ERR) Src=(CRC ERR) Channel Code =(CRC ERR)
+01:14:11 Sync: +dPMR  dPMR Frame Sync 2 
+ TG=(CRC ERR) Src=(CRC ERR) Channel Code =(CRC ERR)
+01:14:11 Sync: +dPMR  dPMR Frame Sync 2 
+ TG=(CRC ERR) Src=(CRC ERR) Channel Code =(CRC ERR)
+Sync: no sync
+01:14:12 Sync: +dPMR  dPMR Frame Sync 2 
+ TG=(CRC ERR) Src=(CRC ERR) Channel Code =(CRC ERR)
+01:14:12 Sync: +dPMR  dPMR Frame Sync 2 
+ TG=(CRC ERR) Src=(CRC ERR) Channel Code =(CRC ERR) Scrambler
+Sync: no sync
+01:14:12 Sync: +dPMR  dPMR Frame Sync 2 
+ TG=(CRC ERR) Src=(CRC ERR) Channel Code =(CRC ERR)

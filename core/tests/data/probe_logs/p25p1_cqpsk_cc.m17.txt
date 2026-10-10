@@ -1,0 +1,8 @@
+01:13:57 Sync: +M17 BRT 
+01:13:57 Sync: +M17 BRT 
+01:13:57 Sync: +M17 BRT 
+01:13:57 Sync: +M17 BRT 
+Sync: no sync
+01:13:57 Sync: +M17 LSF  CRC ERR
+01:13:57 Sync: +M17 PKT  PKT metadata invalid;
+Sync: no sync

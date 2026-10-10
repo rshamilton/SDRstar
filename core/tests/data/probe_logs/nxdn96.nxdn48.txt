@@ -1,0 +1,2 @@
+01:14:09 Sync: NXDN48  RDCH Data          PF X/4
+01:14:09 Sync: IDAS D  RTCH2 Data   SCCH

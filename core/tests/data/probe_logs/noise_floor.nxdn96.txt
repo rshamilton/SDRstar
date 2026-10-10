@@ -1,0 +1,7 @@
+01:14:29 Sync: NXDN96  RTCH Data          PF X/4
+01:14:29 Sync: NXDN96  RTCH Data          PF X/4
+01:14:29 Sync: NXDN96  RTCH Data           FACCH2
+01:14:29 Sync: NXDN96  RTCH V2+F1         PF X/4
+01:14:29 Sync: NXDN96  RDCH Voice         PF X/4
+01:14:29 Sync: NXDN96  RDCH Voice         PF X/4
+01:14:29 Sync: NXDN96  RTCH Voice         PF X/4

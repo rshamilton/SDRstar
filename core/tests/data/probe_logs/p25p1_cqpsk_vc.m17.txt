@@ -1,0 +1,8 @@
+01:13:59 Sync: -M17 BRT 
+01:13:59 Sync: -M17 LSF  CRC ERR
+01:13:59 Sync: -M17 PKT  CNT: 00; LST: 10; EOT: 1; (CRC ERR) 
+Sync: no sync
+01:13:59 Sync: -M17 BRT 
+01:13:59 Sync: -M17 LSF  CRC ERR
+01:13:59 Sync: -M17 PKT  CNT: 00; LST: 20; EOT: 1; (CRC ERR) 
+01:13:59 Sync: +M17 BRT 

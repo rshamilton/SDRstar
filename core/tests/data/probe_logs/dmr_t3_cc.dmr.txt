@@ -1,0 +1,21 @@
+01:14:01 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC2 
+01:14:02 Sync: +DMR  [SLOT1]  slot2  | Color Code=02 | VC2 
+01:14:02 Sync: +DMR  [SLOT1]  slot2  | Color Code=02 | VC3 
+01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC3 
+01:14:02 Sync:  DMR                  | VOICE CACH/EMB ERR
+01:14:02 Sync:  DMR                  | VOICE CACH/EMB ERR

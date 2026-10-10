@@ -1,0 +1,2 @@
+01:14:00 Sync: NXDN96  RDCH Data           FACCH2
+01:14:00 Sync: NXDN96  RDCH Data           UDCH

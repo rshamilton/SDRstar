@@ -1,0 +1,3 @@
+01:14:12 Sync: -M17 LSF  CRC ERR
+01:14:12 Sync: -M17 PKT  PKT counter mismatch: expected 00 got 07;
+Sync: no sync

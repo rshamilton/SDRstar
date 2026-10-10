@@ -1,0 +1,2 @@
+01:14:25 Sync: NXDN96  RTCH Data           UDCH
+01:14:25 Sync: NXDN96  RDCH V2+F1         PF X/4
