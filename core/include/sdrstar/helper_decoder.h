@@ -69,6 +69,12 @@ public:
     void stop();
     bool running() const { return native_ ? true : (proc_ && proc_->running()); }
 
+    // Move the running decoder to another ABSOLUTE frequency without losing the messages collected so far (the text
+    // decoders follow the user's cursor).  A decoder whose frequency is fixed (ADS-B) ignores the request and returns true.
+    // Returns false (error filled in) if the frequency is not inside the receiver window or the decoder could not restart;
+    // on a failed move the decoder keeps listening where it was, unless it had to be restarted and that failed.
+    bool retarget(double freqHz, std::string& error);
+
     void feedPcm48k(const int16_t* pcm, size_t n);       // Pcm22050 specs
     void feedIq(const cf* iq, size_t n);                 // IqCf32 specs
 
@@ -86,6 +92,7 @@ private:
 
     HelperSpec spec_;
     std::string workDir_;
+    std::string exePath_;
     double freqHz_ = 0;
     std::unique_ptr<Subprocess> proc_;
     BoundedWriter writer_;

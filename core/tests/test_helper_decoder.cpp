@@ -9,12 +9,14 @@
 #include <unistd.h>
 
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <thread>
 
 #include "sdrstar/helper_decoder.h"
+#include "sim_host.h"
 #include "test_framework.h"
 
 using namespace sdrstar;
@@ -134,6 +136,66 @@ TEST(multimon_decodes_pager_audio_through_the_48k_to_22k_path) {
     for (auto& l : d.lines(50)) { if (l.text.find("POCSAG") != std::string::npos || l.text.find("FLEX") != std::string::npos) { pager = true; } }
     CHECK(pager);
     d.stop();
+}
+
+// FM-modulate 22.05 kHz audio (full scale = 6.25 kHz deviation, the inverse of the app's discriminator) into 48 kHz baseband.
+static std::vector<cf> fmModulate22k(const std::vector<int16_t>& a22) {
+    PolyphaseResampler up(22050, 48000);
+    std::vector<int16_t> a48;
+    up.process(a22.data(), a22.size(), a48);
+    std::vector<cf> iq;
+    double ph = 0;
+    for (int16_t v : a48) {
+        ph += 2.0 * 3.14159265358979323846 * (v / 32768.0 * 6250.0) / 48000.0;
+        iq.emplace_back((float)std::cos(ph), (float)std::sin(ph));
+    }
+    return iq;
+}
+
+// The text decoders follow the cursor: a running decoder is moved onto another frequency and keeps what it already has.
+TEST(retarget_moves_a_running_pager_decoder_to_the_cursor_frequency) {
+    const char* tool = std::getenv("SDRSTAR_MULTIMON");
+    const std::string raw = dataFile("SDRSTAR_PAGER_RAW", "pocsag1200_22050.raw");
+    if (!tool || raw.empty()) { std::printf("  (skipped)\n"); return; }
+    std::vector<uint8_t> bytes = slurp(raw.c_str());
+    std::vector<int16_t> a22((int16_t*)bytes.data(), (int16_t*)bytes.data() + bytes.size() / 2);
+    sdrstar_test::SimHost host(929.0e6, 2.4e6);
+    host.addSignal("pager", 929.3e6, fmModulate22k(a22), true);
+
+    HelperDecoder d;
+    std::string err;
+    // Start on empty spectrum: nothing can be decoded there.
+    CHECK(d.start(&host, *findHelperSpec("pager"), tool, 929.0e6, err));
+    std::this_thread::sleep_for(std::chrono::milliseconds(3500));
+    CHECK_EQ(d.messageCount(), 0LL);
+    CHECK_NEAR(d.freqHz(), 929.0e6, 1.0);
+
+    // The cursor is moved onto the pager signal: same decoder, new frequency, and now it decodes.
+    CHECK(d.retarget(929.3e6, err));
+    CHECK_NEAR(d.freqHz(), 929.3e6, 1.0);
+    auto t0 = std::chrono::steady_clock::now();
+    while (d.messageCount() < 1 && std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() < 20.0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    CHECK(d.messageCount() >= 1);
+    const long long got = d.messageCount();
+
+    // A cursor position the receiver window cannot hold: refused, and the decoder keeps listening where it was.
+    err.clear();
+    CHECK(!d.retarget(931.5e6, err));
+    CHECK(!err.empty());
+    CHECK_NEAR(d.freqHz(), 929.3e6, 1.0);
+    CHECK(d.running());
+    CHECK(d.messageCount() >= got);   // nothing was thrown away
+    // Fixed-frequency decoders ignore the cursor (ADS-B): retarget is a successful no-op.
+    d.stop();
+}
+
+TEST(retarget_without_a_radio_fails_cleanly) {
+    HelperDecoder d;
+    std::string err;
+    CHECK(!d.retarget(929.3e6, err));
+    CHECK(!err.empty());
 }
 
 // Synthetic AFSK signals (tools/gen_afsk_samples.py): proves the APRS / EAS wiring and arguments end to end.

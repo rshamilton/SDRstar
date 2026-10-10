@@ -173,6 +173,7 @@ std::string summarizeHelperLineChecked(const std::string& line) {
 bool HelperDecoder::startProcess(const HelperSpec& spec, const std::string& exePath, double freqHz, std::string& error) {
     stop();
     spec_ = spec;
+    exePath_ = exePath;
     freqHz_ = spec.fixedFreqHz > 0 ? spec.fixedFreqHz : freqHz;
     native_ = spec.native;
     if (native_) {
@@ -270,6 +271,51 @@ bool HelperDecoder::start(RadioHost* host, const HelperSpec& spec, const std::st
         }
     }
     return true;
+}
+
+bool HelperDecoder::retarget(double freqHz, std::string& error) {
+    if (native_ || spec_.fixedFreqHz > 0) { return true; }
+    if (!host_) {
+        error = "the decoder is not attached to a radio";
+        return false;
+    }
+    if (tap_) {
+        // multimon-ng takes plain audio and has no idea what frequency it is on: just move the channel under it.
+        if (!tap_->move(freqHz)) {
+            error = "that frequency is outside the receiver window";
+            return false;
+        }
+        freqHz_ = freqHz;
+        std::lock_guard<std::mutex> lk(mtx_);
+        partial_.clear();   // half a line from the old frequency must not be glued to the next one
+        return true;
+    }
+    if (iqChannel_ >= 0) {
+        // rtl_433 is told the centre frequency on its command line (it selects its device set from it), so it has to be
+        // restarted.  The messages already collected stay.
+        std::vector<HelperLine> keepLines;
+        long long keepCount;
+        double keepT0;
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            keepLines = lines_;
+        }
+        keepCount = count_.load();
+        keepT0 = t0_;
+        RadioHost* host = host_;
+        const HelperSpec spec = spec_;
+        const std::string exe = exePath_;
+        if (!start(host, spec, exe, freqHz, error)) { return false; }
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            lines_ = keepLines;
+        }
+        count_ = keepCount;
+        t0_ = keepT0;
+        return true;
+    }
+    error = "the decoder has no channel";
+    return false;
 }
 
 void HelperDecoder::stop() {

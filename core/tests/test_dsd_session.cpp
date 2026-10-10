@@ -135,6 +135,48 @@ TEST(real_dsd_dmr_color_code_and_voice_audio) {
     s.stop();
 }
 
+TEST(output_channels_follow_the_preset_measured_against_the_real_decoder) {
+    // DSD-neo writes stereo for the TDMA presets and mono for the rest; assuming stereo for a mono preset plays the
+    // voice at double speed.
+    CHECK_EQ(dsdOutputChannels({"-fs"}), 2);   // DMR
+    CHECK_EQ(dsdOutputChannels({"-ft"}), 2);   // P25 helper used for trunk following
+    CHECK_EQ(dsdOutputChannels({"-f1"}), 1);   // P25 Phase 1
+    CHECK_EQ(dsdOutputChannels({"-fd"}), 1);   // D-STAR
+    CHECK_EQ(dsdOutputChannels({"-fn"}), 1);   // NXDN
+    CHECK_EQ(dsdOutputChannels({"-fh"}), 1);   // EDACS / ProVoice
+    CHECK_EQ(dsdOutputChannels({"-fq", "-zz"}), 2);   // unknown flags: stereo
+    CHECK_EQ(dsdOutputChannels({}), 2);
+    for (const auto& p : dsdPresets()) { CHECK(p.outChannels == 1 || p.outChannels == 2); }
+}
+
+TEST(real_dsd_mono_preset_delivers_mono_frames_and_dmr_stereo) {
+    if (!haveEnv()) { std::printf("  (skipped: set SDRSTAR_DSD_NEO and SDRSTAR_FIXTURES)\n"); return; }
+    struct Case { const char* fixture; const char* flag; int channels; };
+    for (const Case& k : {Case{"p25p1_c4fm_vc", "-f1", 1}, Case{"dstar", "-fd", 1}, Case{"dmr_voice", "-fs", 2}}) {
+        auto pcm = fixturePcm(k.fixture);
+        CHECK(!pcm.empty());
+        DsdSession s;
+        DsdSession::Config c;
+        c.exePath = dsdExe();
+        c.mode = {k.flag};
+        c.wantAudio = true;
+        std::atomic<long long> frames{0};
+        std::atomic<int> seenChannels{0};
+        s.setAudioCallback([&](const int16_t*, size_t n, int ch, int) {
+            frames += (long long)n;
+            seenChannels = ch;
+        });
+        std::string err;
+        CHECK(s.start(c, err));
+        feedUntil(s, pcm, 20.0, [&](const DsdState&) { return frames.load() > 1600; });
+        CHECK(frames.load() > 1600);
+        CHECK_EQ(seenChannels.load(), k.channels);
+        // byte accounting: whole frames of `channels` samples came out, nothing was left half-read
+        CHECK_EQ(s.state().audioBytesOut / (2 * k.channels) >= frames.load() - 1, true);
+        s.stop();
+    }
+}
+
 TEST(stop_kills_the_child_and_is_idempotent) {
     if (!haveEnv()) { return; }
     DsdSession s;

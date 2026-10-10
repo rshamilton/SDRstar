@@ -123,4 +123,38 @@ TEST(too_little_evidence_is_not_a_claim) {
     CHECK(!evaluateProbe("m17", st, {"Sync: -M17 BRT", "Sync: +M17 BRT", "Sync: -M17 LSF  CRC ERR"}).claimed);
 }
 
+// Build a DMR probe from synthetic decoder lines: `sync` voice/data sync lines (with a colour code) plus `extra`.
+static ProbeVerdict dmrProbe(const std::vector<std::string>& extra) {
+    std::vector<std::string> lines;
+    for (int i = 0; i < 6; ++i) { lines.push_back("01:14:02 Sync: +DMR   slot1  [SLOT2] | Color Code=02 | VC1 "); }
+    for (const auto& e : extra) { lines.push_back(e); }
+    DsdSession s;
+    for (const auto& l : lines) { s.ingestLogLine(l); }
+    return evaluateProbe("dmr", s.state(), lines);
+}
+
+TEST(conventional_dmr_repeater_is_not_called_a_trunked_control_channel) {
+    // "Preamble CSBK" / "Channel Timing CSBK" are printed on ordinary repeater channels, so a few of them must not turn a
+    // plain DMR channel into "DMR control channel (trunked system)" (which then offered "Follow trunked system").
+    ProbeVerdict v = dmrProbe({" Preamble CSBK - Individual Data - Source: 4 - Target: 2 ", " Preamble CSBK - Group CSBK - Source: 4 - Target: 9 ",
+                               " Channel Timing CSBK (CT_CSBK) ", " Preamble CSBK - Individual Data - Source: 4 - Target: 2 "});
+    CHECK(v.claimed);
+    CHECK(!v.controlChannel);
+    CHECK(!v.trunkable);
+    CHECK_EQ(v.title, std::string("DMR channel"));
+}
+
+TEST(dmr_tier3_capacity_plus_and_connect_plus_control_traffic_is_a_control_channel) {
+    ProbeVerdict t3 = dmrProbe({" C_ALOHA_SYS_PARMS: Large; Net ID: 1; Site ID: 2;", " C_BCAST Announce-WD TSCC", " TV_GRANT Target: 1 - Source: 2"});
+    CHECK(t3.claimed);
+    CHECK(t3.controlChannel);
+    CHECK(t3.trunkable);
+    ProbeVerdict cap = dmrProbe({" Capacity Plus CSBK 0x3A ", " Capacity Plus CSBK 0x3A ", " Capacity Plus CSBK 0x3A "});
+    CHECK(cap.controlChannel);
+    ProbeVerdict con = dmrProbe({" Connect Plus Group Voice Channel Grant;", " Connect Plus Adjacent Sites:", " SLCO Connect Plus Control (single)"});
+    CHECK(con.controlChannel);
+    // two lines are still not enough: a decoder glitch must not call a plain channel a control channel
+    CHECK(!dmrProbe({" C_ALOHA_SYS_PARMS: Large;", " C_ALOHA_SYS_PARMS: Large;"}).controlChannel);
+}
+
 TEST_MAIN("probe_evidence")

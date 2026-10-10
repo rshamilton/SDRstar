@@ -200,6 +200,14 @@ TEST(band_plan_hints) {
     CHECK(bandSuggests(1090e6, "adsb"));
     CHECK(bandSuggests(433.92e6, "ism"));
     CHECK(bandSuggests(929.5e6, "pocsag"));
+    // pager allocations outside the 929 / 152 / 158 MHz ones: US UHF paging (454 / 459 MHz), the EU UHF and 169 MHz bands
+    CHECK(bandSuggests(454.2e6, "pocsag"));
+    CHECK(bandSuggests(459.4e6, "flex"));
+    CHECK(bandSuggests(466.1e6, "pocsag"));
+    CHECK(bandSuggests(169.6e6, "pocsag"));
+    CHECK(bandSuggests(35.1e6, "pocsag"));
+    CHECK(!bandSuggests(98.5e6, "pocsag"));
+    CHECK(!bandSuggests(852e6, "pocsag"));
     CHECK(!bandSuggests(98.5e6, "p25"));
     const BandEntry* b = bestBandFor(162.5e6);
     CHECK(b != nullptr);

@@ -25,6 +25,20 @@ std::string stripAnsiLocal(const std::string& s) {
 
 bool has(const std::string& s, const char* needle) { return s.find(needle) != std::string::npos; }
 
+// A line only a DMR *trunking* control channel produces.  A bare "CSBK" is not one: conventional repeaters print
+// "Preamble CSBK" before data and "Channel Timing CSBK" on ordinary traffic channels, so counting those called plain DMR
+// channels "control channels (trunked system)".  These are DSD-neo's own labels for the control messages: Tier III
+// (C_ALOHA / C_BCAST / C_MOVE / C_AHOY / C_ACKVIT / P_MAINT and the *_GRANT family), Capacity Plus and Connect Plus.
+bool isDmrTrunkingLine(const std::string& l) {
+    static const char* const kMarkers[] = {"C_ALOHA", "C_BCAST", "C_MOVE", "C_AHOY", "C_ACKVIT", "P_MAINT", "_GRANT", "Capacity Plus CSBK",
+                                           "Connect Plus Adjacent", "Connect Plus Group Voice", "Connect Plus Private Voice",
+                                           "Connect Plus Data Channel", "SLCO Connect Plus Control"};
+    for (const char* m : kMarkers) {
+        if (has(l, m)) { return true; }
+    }
+    return false;
+}
+
 struct Counts {
     int sync = 0;        // lines that contain the protocol's sync token
     int clean = 0;       // ... and carry no error marker
@@ -101,7 +115,7 @@ ProbeVerdict evaluateProbe(const std::string& presetId, const DsdState& st, cons
     } else if (presetId == "dmr") {
         each([&](const std::string& l) {
             if (has(l, "Sync: +DMR") || has(l, "Sync: DMR")) { c.sync++; }
-            if (has(l, "CSBK") || has(l, "TV_GRANT") || has(l, "C_ALOHA") || has(l, "Tier III")) { c.control++; }
+            if (isDmrTrunkingLine(l)) { c.control++; }
         });
         v.evidenceCount = c.sync;
         v.confidence = confidenceFor(c.sync, 3);

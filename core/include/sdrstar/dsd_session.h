@@ -110,6 +110,7 @@ public:
         bool trunking = false;            // pass -T
         int rigctlPort = 0;               // pass -U <port> when > 0
         bool wantAudio = false;           // true: -o - (decoded voice on stdout); false: -o null
+        int audioChannels = 0;            // channels in the decoded voice on stdout; 0 = work it out from `mode` (dsdOutputChannels())
         std::string workDir;              // cwd and XDG dirs for the child ("" = system temp)
         std::string label;                // for logs
     };
@@ -180,8 +181,15 @@ struct DsdPreset {
     const char* title;       // "P25 Phase 1"
     std::vector<std::string> flags;
     int symbolRate;          // for display/matching
+    int outChannels;         // channels DSD-neo writes to stdout for this preset: 1 = mono, 2 = stereo (slot 1 left, slot 2 right)
 };
 const std::vector<DsdPreset>& dsdPresets();
 const DsdPreset* findDsdPreset(const std::string& id);
+
+// How many channels the decoded voice has when DSD-neo runs with these preset flags.  Measured against the real decoder:
+// the TDMA presets (-fs DMR, -ft P25 helper) write stereo (a lone voice slot is copied to both sides), every other
+// preset (P25 Phase 1, NXDN, dPMR, D-STAR, YSF, M17, ProVoice, EDACS) writes mono.  Reading mono as stereo plays the
+// voice at double speed, so this must match.  Unknown flags give stereo.
+int dsdOutputChannels(const std::vector<std::string>& modeFlags);
 
 }  // namespace sdrstar

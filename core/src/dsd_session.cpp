@@ -82,20 +82,20 @@ long long hexOrDec(const std::string& s, int base) { return std::strtoll(s.c_str
 
 const std::vector<DsdPreset>& dsdPresets() {
     static const std::vector<DsdPreset> p = {
-        {"p25p1", "P25 Phase 1", {"-f1"}, 4800},
-        {"p25p2", "P25 Phase 2", {"-f2"}, 6000},
-        {"p25", "P25 (Phase 1 + 2, trunk helper)", {"-ft"}, 4800},
-        {"dmr", "DMR", {"-fs"}, 4800},
-        {"nxdn96", "NXDN 9600 (12.5 kHz)", {"-fn"}, 4800},
-        {"nxdn48", "NXDN 4800 (6.25 kHz)", {"-fi"}, 2400},
-        {"dpmr", "dPMR", {"-fm"}, 2400},
-        {"dstar", "D-STAR", {"-fd"}, 4800},
-        {"ysf", "Yaesu System Fusion", {"-fy"}, 4800},
-        {"m17", "M17", {"-fz"}, 4800},
-        {"provoice", "ProVoice", {"-fp"}, 9600},
-        {"edacs", "EDACS", {"-fh"}, 9600},
-        {"x2tdma", "X2-TDMA", {"-fx"}, 6000},
-        {"auto", "Auto-detect (slow)", {"-fa"}, 0},
+        {"p25p1", "P25 Phase 1", {"-f1"}, 4800, 1},
+        {"p25p2", "P25 Phase 2", {"-f2"}, 6000, 2},
+        {"p25", "P25 (Phase 1 + 2, trunk helper)", {"-ft"}, 4800, 2},
+        {"dmr", "DMR", {"-fs"}, 4800, 2},
+        {"nxdn96", "NXDN 9600 (12.5 kHz)", {"-fn"}, 4800, 1},
+        {"nxdn48", "NXDN 4800 (6.25 kHz)", {"-fi"}, 2400, 1},
+        {"dpmr", "dPMR", {"-fm"}, 2400, 1},
+        {"dstar", "D-STAR", {"-fd"}, 4800, 1},
+        {"ysf", "Yaesu System Fusion", {"-fy"}, 4800, 1},
+        {"m17", "M17", {"-fz"}, 4800, 1},
+        {"provoice", "ProVoice", {"-fp"}, 9600, 1},
+        {"edacs", "EDACS", {"-fh"}, 9600, 1},
+        {"x2tdma", "X2-TDMA", {"-fx"}, 6000, 2},
+        {"auto", "Auto-detect (slow)", {"-fa"}, 0, 2},
     };
     return p;
 }
@@ -105,6 +105,13 @@ const DsdPreset* findDsdPreset(const std::string& id) {
         if (id == p.id) { return &p; }
     }
     return nullptr;
+}
+
+int dsdOutputChannels(const std::vector<std::string>& modeFlags) {
+    for (const auto& p : dsdPresets()) {
+        if (p.flags == modeFlags) { return p.outChannels; }
+    }
+    return 2;
 }
 
 bool DsdSession::start(const Config& cfg, std::string& error) {
@@ -124,6 +131,7 @@ bool DsdSession::start(const Config& cfg, std::string& error) {
         pcmPending_.clear();
     }
     audioCarryLen_ = 0;
+    audioChannels_ = cfg.audioChannels > 0 ? std::min(cfg.audioChannels, 2) : dsdOutputChannels(cfg.mode);
 
     std::string work = cfg.workDir;
     if (work.empty()) {
