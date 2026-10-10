@@ -5,6 +5,9 @@
 //       tests/data/signals (see its README); SDRSTAR_PAGER_RAW overrides the pager file.
 //   SDRSTAR_RTL433 (the rtl_433 program): an ISM sensor capture that is NOT committed (licence): fetch it with
 //       tools/fetch_test_samples.sh, or point SDRSTAR_ISM_CU8 at any 250 kS/s cu8 capture of a Nexus-TH sensor.
+#include <stdlib.h>
+#include <unistd.h>
+
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
