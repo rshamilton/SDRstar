@@ -33,8 +33,8 @@ Buttons you may see:
 * **Decode and listen**: for a conventional (non-trunked) digital voice channel. Plays the decoded voice.
 * **Follow trunked system**: see the next section.
 * **Center on signal**: your cursor is a little off the signal's true centre; this snaps it on.
-* **Read pager messages / Decode APRS / Read weather alerts / Read sensors**: the text decoders (below). Offered
-  where the band suggests them.
+* **Read pager messages / Decode APRS / Read weather alerts / Read sensors / Read aircraft (ADS-B)**: the text decoders
+  (below). Offered where the band suggests them.
 
 A digital protocol is only **claimed** after enough error-checked data has really been decoded. If nothing is
 claimed the card says "No digital protocol recognised" and tells you what that could mean (analog, encrypted, too weak,
