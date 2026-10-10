@@ -23,7 +23,7 @@ public:
     double centerHz() const override;
     bool setCenter(double hz, std::string& error) override;
     double channelRateHz() const override { return 48000.0; }
-    int openChannel(double absFreqHz, double bwHz, IqSinkFn sink, std::string& error) override;
+    int openChannel(double absFreqHz, double bwHz, IqSinkFn sink, std::string& error, double rateHz = 0) override;
     bool moveChannel(int channel, double absFreqHz) override;
     void closeChannel(int channel) override;
 

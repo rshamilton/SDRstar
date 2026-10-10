@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <sdrstar/channel_decoder.h>
+#include <sdrstar/helper_decoder.h>
 #include <sdrstar/probe_manager.h>
 #include <sdrstar/signal_detector.h>
 #include <sdrstar/trunk_follower.h>
@@ -33,6 +34,10 @@ enum CardAction {
     ACT_DISMISS,
     ACT_TOGGLE_HOP,
     ACT_CENTER,
+    ACT_HELPER_PAGER,
+    ACT_HELPER_APRS,
+    ACT_HELPER_EAS,
+    ACT_HELPER_ISM,
 };
 
 struct CardButton {
@@ -67,7 +72,7 @@ struct EngineSettings {
     std::string groupListPath;
 };
 
-enum class JobKind { None, Probing, Following, Decoding };
+enum class JobKind { None, Probing, Following, Decoding, Helper };
 
 class SmartEngine {
 public:
@@ -92,6 +97,13 @@ public:
     const std::string& decoderPath() const { return dsdPath_; }
     double noiseFloorDb() const;
     std::string sourceSummary() const;
+
+    // text decoders (pagers, APRS, weather alerts, ISM sensors)
+    bool helperAvailable(const std::string& id) const;
+    void startHelper(const std::string& id, double freqHz);
+    std::vector<sdrstar::HelperLine> helperLines(size_t maxLines = 200) const { return helper_.lines(maxLines); }
+    long long helperMessageCount() const { return helper_.messageCount(); }
+    std::string helperTitle() const { return job_ == JobKind::Helper ? jobTitle_ : std::string(); }
 
     // user actions
     void doAction(CardAction a);
@@ -118,6 +130,7 @@ private:
     void autoProbe(double now);
     void startProbe(double freqHz, double bwHz, bool automatic);
     CardModel buildCursorCard();
+    std::vector<CardButton> helperButtonsFor(double freqHz) const;
     void startFollow(const StoredResult& r);
     void startDecode(const StoredResult& r);
     void stopJob();
@@ -141,10 +154,13 @@ private:
     sdrstar::ProbeManager probe_;
     sdrstar::TrunkFollower follower_;
     sdrstar::ChannelDecoder decoder_;
+    sdrstar::HelperDecoder helper_;
 
     EngineSettings settings_;
     std::string root_;
     std::string dsdPath_;
+    std::string multimonPath_;
+    std::string rtl433Path_;
     bool started_ = false;
 
     JobKind job_ = JobKind::None;

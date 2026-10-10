@@ -19,7 +19,7 @@ static const std::vector<BandEntry>& table() {
         {152e6, 159.5e6, "VHF land mobile / pagers", "NFM, P25, DMR, POCSAG/FLEX", {"nfm", "p25", "dmr", "nxdn", "pocsag", "flex"}},
         {156e6, 162.025e6, "Marine VHF", "NFM voice; AIS at 161.975 / 162.025 MHz", {"nfm", "ais"}},
         {159.5e6, 174e6, "VHF public safety / land mobile", "NFM, P25, DMR, NXDN", {"nfm", "p25", "dmr", "nxdn"}},
-        {162.4e6, 162.55e6, "NOAA weather radio", "NFM, 7 channels", {"nfm"}},
+        {162.4e6, 162.55e6, "NOAA weather radio", "NFM, 7 channels, EAS alerts", {"nfm", "eas"}},
         {220e6, 225e6, "1.25 m amateur", "NFM", {"nfm"}},
         {380e6, 400e6, "TETRA / public safety", "TETRA (25 kHz), P25", {"tetra", "p25"}},
         {406e6, 420e6, "Federal UHF", "NFM, P25", {"nfm", "p25"}},

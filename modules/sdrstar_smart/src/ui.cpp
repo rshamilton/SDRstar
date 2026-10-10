@@ -325,6 +325,36 @@ void SmartUi::drawMenu() {
     }
 
     ImGui::Separator();
+    ImGui::Text("Text decoders");
+    {
+        static int pick = 0;
+        static const char* ids[] = {"pager", "aprs", "eas", "ism"};
+        static const char* names[] = {"Pager messages (POCSAG / FLEX)", "APRS packets", "Weather alerts (EAS)", "ISM sensors (433 / 868 / 915 MHz)"};
+        ImGui::SetNextItemWidth(w);
+        if (ImGui::BeginCombo("##sdrstar_helper", names[pick])) {
+            for (int i = 0; i < 4; ++i) {
+                if (ImGui::Selectable(names[i], pick == i)) { pick = i; }
+            }
+            ImGui::EndCombo();
+        }
+        const bool can = eng_.cursorValid() && eng_.helperAvailable(ids[pick]);
+        if (!can) { style::beginDisabled(); }
+        if (ImGui::Button("Decode at the cursor##sdrstar_helper_go", ImVec2(w, 0))) { eng_.startHelper(ids[pick], eng_.cursorFreq()); }
+        if (!can) { style::endDisabled(); }
+        if (!eng_.helperAvailable(ids[pick])) { ImGui::TextDisabled("This decoder was not found in the app bundle."); }
+    }
+    if (eng_.jobKind() == JobKind::Helper) {
+        auto ls = eng_.helperLines(120);
+        if (ImGui::TreeNodeEx("Messages##sdrstar_msgs", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ls.empty()) { ImGui::TextDisabled("Nothing received yet."); }
+            for (auto it = ls.rbegin(); it != ls.rend(); ++it) {
+                ImGui::TextWrapped("[%5.0fs] %s", it->tSec, it->text.c_str());
+            }
+            ImGui::TreePop();
+        }
+    }
+
+    ImGui::Separator();
     ImGui::Text("Trunk following");
     if (ImGui::Checkbox("Hop to out-of-range calls##sdrstar", &s.allowHop)) {
         eng_.settingsChanged();

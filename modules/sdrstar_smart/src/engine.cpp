@@ -105,6 +105,10 @@ void SmartEngine::start(const std::string& rootDir) {
     std::filesystem::create_directories(root_ + "/sdrstar_work", ec);
     loadSettings();
     dsdPath_ = findHelper("dsd-neo");
+    multimonPath_ = findHelper("multimon-ng");
+    rtl433Path_ = findHelper("rtl_433");
+    if (multimonPath_.empty()) { flog::warn("SDRstar: multimon-ng not found; pager / APRS / weather-alert decoding is disabled"); }
+    if (rtl433Path_.empty()) { flog::warn("SDRstar: rtl_433 not found; ISM sensor decoding is disabled"); }
     if (dsdPath_.empty()) {
         flog::warn("SDRstar: the dsd-neo decoder was not found; digital identification and trunk following are disabled");
     } else {
@@ -238,6 +242,11 @@ void SmartEngine::tick() {
         addNote("The decoder stopped.");
         stopJob();
     }
+    if (job_ == JobKind::Helper && !helper_.running()) {
+        std::string why = helper_.lastError();
+        addNote("The " + jobTitle_ + " decoder stopped." + (why.empty() ? "" : " (" + why + ")"));
+        stopJob();
+    }
     if (job_ == JobKind::Following) {
         FollowStatus st = follower_.status();
         if (st.state == FollowState::Stopped) { stopJob(); }
@@ -354,6 +363,7 @@ void SmartEngine::stopJob() {
     case JobKind::Probing: probe_.cancel(); break;
     case JobKind::Following: follower_.stop(); break;
     case JobKind::Decoding: decoder_.stop(); break;
+    case JobKind::Helper: helper_.stop(); break;
     default: break;
     }
     job_ = JobKind::None;
@@ -412,8 +422,37 @@ void SmartEngine::startDecode(const StoredResult& r) {
     setRadioMuted(true);
 }
 
+bool SmartEngine::helperAvailable(const std::string& id) const {
+    const sdrstar::HelperSpec* sp = sdrstar::findHelperSpec(id);
+    if (!sp) { return false; }
+    return !(sp->exeName == "rtl_433" ? rtl433Path_ : multimonPath_).empty();
+}
+
+void SmartEngine::startHelper(const std::string& id, double freqHz) {
+    const sdrstar::HelperSpec* sp = sdrstar::findHelperSpec(id);
+    if (!sp) { return; }
+    const std::string& exe = sp->exeName == "rtl_433" ? rtl433Path_ : multimonPath_;
+    if (exe.empty()) {
+        addNote("The " + sp->exeName + " helper was not found, so " + sp->title + " cannot be decoded.");
+        return;
+    }
+    stopJob();
+    std::string err;
+    if (!helper_.start(&host_, *sp, exe, freqHz, err)) {
+        addNote("Could not start " + sp->title + ": " + err);
+        return;
+    }
+    job_ = JobKind::Helper;
+    jobFreq_ = freqHz;
+    jobTitle_ = sp->title;
+}
+
 void SmartEngine::doAction(CardAction a) {
     switch (a) {
+    case ACT_HELPER_PAGER: startHelper("pager", snapFrequency(cursorFreq_, cursorBw_)); break;
+    case ACT_HELPER_APRS: startHelper("aprs", snapFrequency(cursorFreq_, cursorBw_)); break;
+    case ACT_HELPER_EAS: startHelper("eas", snapFrequency(cursorFreq_, cursorBw_)); break;
+    case ACT_HELPER_ISM: startHelper("ism", cursorFreq_); break;
     case ACT_IDENTIFY: identifyAtCursor(); break;
     case ACT_FOLLOW:
         if (const StoredResult* r = resultFor(snapFrequency(cursorFreq_, cursorBw_))) {
@@ -462,6 +501,7 @@ std::string SmartEngine::decoderStatusLine() {
     case JobKind::Probing: return lastProbe_.status;
     case JobKind::Following: return follower_.status().headline;
     case JobKind::Decoding: return "Decoding " + jobTitle_;
+    case JobKind::Helper: return jobTitle_ + " at " + formatFrequency(jobFreq_) + ": " + std::to_string(helper_.messageCount()) + " received";
     default: return "Ready.";
     }
 }
@@ -509,6 +549,27 @@ CardModel SmartEngine::card() {
         m.buttons.push_back({ACT_STOP, "Stop decoding", true, true});
         return m;
     }
+    if (job_ == JobKind::Helper) {
+        m.visible = true;
+        m.pinned = true;
+        m.freqHz = jobFreq_;
+        m.tone = CardTone::Good;
+        m.title = jobTitle_;
+        m.subtitle = mhz(jobFreq_) + "   \xC2\xB7   " + std::to_string(helper_.messageCount()) + " received";
+        auto ls = helper_.lines(5);
+        if (ls.empty()) {
+            const sdrstar::HelperSpec* sp = sdrstar::findHelperSpec(helper_.spec().id);
+            m.lines.push_back(sp ? sp->idleHint : std::string("Waiting..."));
+        }
+        for (const auto& l : ls) {
+            std::string t = l.text;
+            if (t.size() > 140) { t = t.substr(0, 137) + "..."; }
+            m.lines.push_back(t);
+        }
+        if (helper_.droppedBytes() > 0) { m.warning = "The decoder could not keep up; some signal was skipped."; }
+        m.buttons.push_back({ACT_STOP, "Stop", true, true});
+        return m;
+    }
     if (job_ == JobKind::Probing) {
         if (jobAutomatic_) {
             // Background identification: never steal the screen. The cursor's own card wins; otherwise a small chip.
@@ -535,6 +596,20 @@ CardModel SmartEngine::card() {
         return m;
     }
     return buildCursorCard();
+}
+
+std::vector<CardButton> SmartEngine::helperButtonsFor(double f) const {
+    std::vector<CardButton> v;
+    auto add = [&](const char* proto, const char* id, CardAction act, const char* label) {
+        if (!bandSuggests(f, proto)) { return; }
+        const bool ok = helperAvailable(id);
+        v.push_back({act, ok ? std::string(label) : std::string(label) + " (helper missing)", false, ok});
+    };
+    add("pocsag", "pager", ACT_HELPER_PAGER, "Read pager messages");
+    add("aprs", "aprs", ACT_HELPER_APRS, "Decode APRS");
+    add("eas", "eas", ACT_HELPER_EAS, "Read weather alerts");
+    add("ism", "ism", ACT_HELPER_ISM, "Read sensors");
+    return v;
 }
 
 CardModel SmartEngine::buildCursorCard() {
@@ -586,6 +661,9 @@ CardModel SmartEngine::buildCursorCard() {
             m.lines.push_back("Wide digital modes (e.g. TETRA) are not decoded yet.");
             m.buttons.push_back({ACT_LISTEN_NFM, "Listen as FM", false, true});
         }
+    }
+    if (!(r && r->verdict.claimed)) {
+        for (auto& b : helperButtonsFor(sig.freqHz)) { m.buttons.push_back(b); }
     }
     if (std::fabs(sig.freqHz - cursorFreq_) > 1500.0) {
         m.buttons.insert(m.buttons.begin(), {ACT_CENTER, "Center on signal", false, true});

@@ -31,7 +31,8 @@ public:
     // Open a hidden down-converted channel at an ABSOLUTE frequency.  `sink` is called on the host's DSP thread with
     // complex baseband at channelRateHz().  Returns a channel id >= 0, or -1 (error filled in).
     using IqSinkFn = std::function<void(const cf* samples, size_t count)>;
-    virtual int openChannel(double absFreqHz, double bwHz, IqSinkFn sink, std::string& error) = 0;
+    // `rateHz` = 0 selects channelRateHz(); other rates (e.g. 250 kHz for ISM sensors) are supported by the SDR++ host.
+    virtual int openChannel(double absFreqHz, double bwHz, IqSinkFn sink, std::string& error, double rateHz = 0) = 0;
     // Retarget an open channel to another ABSOLUTE frequency inside the current window.  Returns false if the
     // frequency is not inside the window.
     virtual bool moveChannel(int channel, double absFreqHz) = 0;

@@ -85,8 +85,12 @@ public:
         return true;
     }
     double channelRateHz() const override { return 48000.0; }
-    int openChannel(double absFreqHz, double bwHz, IqSinkFn sink, std::string& error) override {
+    int openChannel(double absFreqHz, double bwHz, IqSinkFn sink, std::string& error, double rateHz = 0) override {
         std::lock_guard<std::mutex> lk(mtx_);
+        if (rateHz != 0 && std::fabs(rateHz - 48000.0) > 1) {
+            error = "simulated host only provides 48 kHz channels";
+            return -1;
+        }
         if (!fits(absFreqHz, bwHz)) {
             error = "channel outside the capture window";
             return -1;

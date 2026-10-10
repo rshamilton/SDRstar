@@ -103,8 +103,13 @@ void SdrppRadioHost::onBlock(dsp::complex_t* data, int count, void* ctx) {
     if (c->sink) { c->sink(reinterpret_cast<const sdrstar::cf*>(data), (size_t)count); }
 }
 
-int SdrppRadioHost::openChannel(double absFreqHz, double bwHz, IqSinkFn sink, std::string& error) {
+int SdrppRadioHost::openChannel(double absFreqHz, double bwHz, IqSinkFn sink, std::string& error, double rateHz) {
     std::lock_guard<std::mutex> lk(mtx_);
+    if (rateHz <= 0) { rateHz = channelRateHz(); }
+    if (rateHz > caps().sampleRateHz) {
+        error = "the radio's current sample rate is too low for this decoder";
+        return -1;
+    }
     if (!fitsLocked(absFreqHz, bwHz)) {
         error = "channel is outside the visible window";
         return -1;
@@ -115,7 +120,7 @@ int SdrppRadioHost::openChannel(double absFreqHz, double bwHz, IqSinkFn sink, st
     c->absHz = absFreqHz;
     c->bwHz = bwHz;
     c->sink = std::move(sink);
-    c->vfo = sigpath::iqFrontEnd.addVFO(c->name, 48000.0, bwHz, absFreqHz - centerHz());
+    c->vfo = sigpath::iqFrontEnd.addVFO(c->name, rateHz, bwHz, absFreqHz - centerHz());
     if (!c->vfo) {
         error = "could not create a hidden channel";
         return -1;
