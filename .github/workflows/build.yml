@@ -177,6 +177,9 @@ jobs:
       - name: Build SDR++ with the SDRstar module (Linux dry run of the macOS CMake flags)
         run: scripts/build_sdrpp.sh
 
+      - name: Safety audit of the sources and of the patched SDR++ tree
+        run: scripts/safety_audit.sh "$PWD/build/x86_64/sdrpp-src"
+
   # -------------------------------------------------------------------------------------------------------------
   mac:
     needs: [plan, linux, linux-recipes]

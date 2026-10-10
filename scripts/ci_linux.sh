@@ -58,3 +58,7 @@ fi
 # --- core + all tests ------------------------------------------------------------------------------------------
 export LD_LIBRARY_PATH="$PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 "$SCRIPTS/test_core.sh" "$PREFIX/bin/dsd-neo" "$PREFIX/fixtures"
+
+# --- safety audit + ThreadSanitizer --------------------------------------------------------------------------
+"$SCRIPTS/safety_audit.sh"
+"$SCRIPTS/ci_tsan.sh" "$PREFIX/bin/dsd-neo" "$PREFIX/fixtures"

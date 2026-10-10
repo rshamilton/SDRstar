@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Real-tool tests of HelperDecoder.  Skipped unless the tool and its sample are provided:
-//   SDRSTAR_MULTIMON + SDRSTAR_PAGER_RAW  (22.05 kHz s16le mono audio of a POCSAG/FLEX recording)
-//   SDRSTAR_RTL433   + SDRSTAR_ISM_CU8    (250 kS/s cu8 capture of an ISM sensor, e.g. rtl_433_tests nexus/03)
+//   SDRSTAR_MULTIMON (the multimon-ng program): pager audio, APRS and EAS signals.  The files are committed in
+//       tests/data/signals (see its README); SDRSTAR_PAGER_RAW overrides the pager file.
+//   SDRSTAR_RTL433 (the rtl_433 program): an ISM sensor capture that is NOT committed (licence): fetch it with
+//       tools/fetch_test_samples.sh, or point SDRSTAR_ISM_CU8 at any 250 kS/s cu8 capture of a Nexus-TH sensor.
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -13,6 +15,18 @@
 #include "test_framework.h"
 
 using namespace sdrstar;
+
+// Test data: an explicit environment variable wins, otherwise the committed files next to the tests.
+static std::string dataFile(const char* envName, const char* relName) {
+    if (envName) {
+        if (const char* e = std::getenv(envName)) { return e; }
+    }
+    const char* dir = std::getenv("SDRSTAR_TEST_DATA_DIR");
+    if (!dir) { return ""; }
+    std::string p = std::string(dir) + "/signals/" + relName;
+    std::ifstream f(p, std::ios::binary);
+    return f ? p : "";
+}
 
 static std::vector<uint8_t> slurp(const char* p) {
     std::ifstream f(p, std::ios::binary);
@@ -90,9 +104,9 @@ TEST(helpers_get_a_private_working_directory_and_home) {
 
 TEST(multimon_decodes_pager_audio_through_the_48k_to_22k_path) {
     const char* tool = std::getenv("SDRSTAR_MULTIMON");
-    const char* raw = std::getenv("SDRSTAR_PAGER_RAW");
-    if (!tool || !raw) { std::printf("  (skipped)\n"); return; }
-    std::vector<uint8_t> bytes = slurp(raw);
+    const std::string raw = dataFile("SDRSTAR_PAGER_RAW", "pocsag1200_22050.raw");
+    if (!tool || raw.empty()) { std::printf("  (skipped)\n"); return; }
+    std::vector<uint8_t> bytes = slurp(raw.c_str());
     CHECK(bytes.size() > 40000);
     std::vector<int16_t> a22((int16_t*)bytes.data(), (int16_t*)bytes.data() + bytes.size() / 2);
     // 22.05 kHz -> 48 kHz (what the FM discriminator would deliver); HelperDecoder converts back down.
@@ -122,9 +136,9 @@ TEST(multimon_decodes_pager_audio_through_the_48k_to_22k_path) {
 // Synthetic AFSK signals (tools/gen_afsk_samples.py): proves the APRS / EAS wiring and arguments end to end.
 static bool decodesSynthetic(const char* specId, const char* file, const char* expect) {
     const char* tool = std::getenv("SDRSTAR_MULTIMON");
-    const char* dir = std::getenv("SDRSTAR_AFSK_DIR");
-    if (!tool || !dir) { return true; }   // skipped
-    std::vector<uint8_t> bytes = slurp((std::string(dir) + "/" + file).c_str());
+    const std::string path = dataFile(nullptr, file);   // committed synthetic files
+    if (!tool || path.empty()) { return true; }   // skipped
+    std::vector<uint8_t> bytes = slurp(path.c_str());
     if (bytes.size() < 20000) { return false; }
     std::vector<int16_t> a22((int16_t*)bytes.data(), (int16_t*)bytes.data() + bytes.size() / 2);
     PolyphaseResampler up(22050, 48000);
@@ -153,9 +167,9 @@ TEST(eas_alert_header_is_decoded_through_the_helper_path) { CHECK(decodesSynthet
 
 TEST(rtl433_decodes_an_ism_sensor_from_float_iq_on_stdin) {
     const char* tool = std::getenv("SDRSTAR_RTL433");
-    const char* cu8 = std::getenv("SDRSTAR_ISM_CU8");
-    if (!tool || !cu8) { return; }
-    std::vector<uint8_t> bytes = slurp(cu8);
+    const std::string cu8 = dataFile("SDRSTAR_ISM_CU8", "nexus_g027_433.92M_250k.cu8");
+    if (!tool || cu8.empty()) { std::printf("  (skipped: run tools/fetch_test_samples.sh for the sensor capture)\n"); return; }
+    std::vector<uint8_t> bytes = slurp(cu8.c_str());
     CHECK(bytes.size() > 100000);
     std::vector<cf> iq;
     for (size_t i = 0; i + 1 < bytes.size(); i += 2) { iq.emplace_back(((float)bytes[i] - 127.5f) / 127.5f, ((float)bytes[i + 1] - 127.5f) / 127.5f); }
