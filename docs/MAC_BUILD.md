@@ -35,7 +35,7 @@ no sudo, and write only inside the repository.
 | 4. bundle | `bundle_mac.sh` (-> `bundle_app.py`) | `dist/<arch>/SDRstar.app`, signed | - |
 | 5. verify | `verify_bundle.sh` (-> `verify_bundle.py`) | pass/fail report | - |
 | 6. tests | `test_helpers.sh`, `test_core.sh`, `smoke_launch.sh` | pass/fail + logs | - |
-| 7. package | `make_dmg.sh` | `dist/SDRstar-<AppleSilicon|Intel>.dmg` + `.sha256` | - |
+| 7. package | `make_dmg.sh` | `dist/SDRstar-AppleSilicon.dmg` or `dist/SDRstar-Intel.dmg` (+ `.sha256`) | - |
 
 `scripts/build_mac.sh` runs the whole chain on your own Mac. `scripts/ci_linux.sh`, `scripts/test_bundler_logic.sh`
 and `scripts/ci_summary.sh` exist for CI.
@@ -202,8 +202,26 @@ runner (stdio is line-buffered on a terminal); otherwise a process that has to b
 | Dependency cache seems stale | Bump `CACHE_VERSION` in `build.yml`, or delete the caches on the repository's Actions -> Caches page. |
 | `GUI NOT AVAILABLE` in the launch summary | The runner has no window server. Plugin loading was still proven by levels 1 and 2. Test the GUI on a real Mac. |
 
-## 7. What is *not* tested here
+## 7. Reference numbers (observed on GitHub's runners)
 
+| | Apple Silicon (`macos-15`, 5 cores) | Intel (`macos-15-intel`) |
+| --- | --- | --- |
+| libraries, cache miss | 2 min 22 s | 8 min 24 s |
+| helpers, cache miss | 31 s | 1 min 39 s |
+| SDR++ + modules, ccache cold / warm | 34 s / 8 s | 2 min 40 s / 35 s |
+| bundle + sign | 14 s | 48 s |
+| whole job, everything cached | about 2 min | about 3 min 30 s |
+| `SDRstar-*.dmg` | 9.6 MB | 12 MB |
+| `SDRstar.app` | 21 MB | 27 MB |
+
+The bundle holds 12 non-system libraries: libusb, librtlsdr, FFTW (single), VOLK, GLFW, zstd, PortAudio, libsndfile,
+OpenSSL (libcrypto only), mbelib-neo, Codec2 and libsdrpp_core; the highest minimum-macOS found in any Mach-O is 12.0.
+
+## 8. What is *not* tested here
+
+* Three core integration tests skip themselves in CI because they need recordings that are not in the repository
+  (`SDRSTAR_REAL_SLICES`, `SDRSTAR_PAGER_RAW`, `SDRSTAR_ISM_CU8`); `test_core.sh` still exports `SDRSTAR_MULTIMON` and
+  `SDRSTAR_RTL433` for them. The DSD-neo integration suite, which `test_core.sh` insists must really run, is complete.
 * The live RTL-SDR path (USB streaming, tuner retune latency, bias tee, audio device) needs real hardware and a real Mac.
 * The GUI on a CI runner (see above).
 * Gatekeeper behaviour of the downloaded DMG (needs the quarantine flag a browser adds).

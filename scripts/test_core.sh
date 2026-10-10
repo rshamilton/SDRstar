@@ -35,6 +35,11 @@ group_end
 
 log "running the tests (SDRSTAR_DSD_NEO=$DSD)"
 export SDRSTAR_DSD_NEO="$DSD" SDRSTAR_FIXTURES="$FIX"
+# Some integration tests also want the other helpers (and extra recordings, which are not part of the repository:
+# SDRSTAR_REAL_SLICES, SDRSTAR_PAGER_RAW, SDRSTAR_ISM_CU8; those tests report "skipped" when the data is absent).
+helper_dir="$(dirname "$DSD")"
+if [ -x "$helper_dir/multimon-ng" ]; then export SDRSTAR_MULTIMON="$helper_dir/multimon-ng"; fi
+if [ -x "$helper_dir/rtl_433" ]; then export SDRSTAR_RTL433="$helper_dir/rtl_433"; fi
 # Tests must not see dyld overrides either: dsd-neo has to resolve its libraries through its own rpath.
 unset DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH DYLD_FRAMEWORK_PATH DYLD_INSERT_LIBRARIES
 ctest_rc=0
