@@ -38,6 +38,7 @@ enum CardAction {
     ACT_HELPER_APRS,
     ACT_HELPER_EAS,
     ACT_HELPER_ISM,
+    ACT_RETURN,   // put the receiver window back on the trunk's control channel
 };
 
 struct CardButton {
@@ -167,6 +168,7 @@ private:
     JobKind job_ = JobKind::None;
     bool jobAutomatic_ = false;
     double jobFreq_ = 0;
+    double jobBw_ = 12500;   // bandwidth of the hidden channel the current job listens on
     std::string jobTitle_;
     sdrstar::ProbeProgress lastProbe_;
     std::map<long long, StoredResult> results_;

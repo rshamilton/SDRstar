@@ -53,6 +53,9 @@ channel, and when a call is announced, go and listen to its voice channel.
    * *Following a call* (talkgroup, who is talking) while the voice plays through your speakers;
    * *Hopping to 860.7125 MHz: it is 4 MHz from the control channel, outside the 1.92 MHz window.* then
      *Back on the control channel ... (window moved)* when the call is over;
+   * *Following paused: the receiver window was moved away from ...* if **you** retune the radio (type another
+     frequency, drag the waterfall) so the channel being followed is no longer in view. Following resumes by itself
+     when the channel is back in view, or press **Return to control channel** to put the window back;
    * *Cannot follow: ...* with the reason, when it can't (examples in the table below).
    Counters show how often the window moved, calls followed, hops and calls skipped. **Activity log** in the SDRstar
    side panel keeps the full history.
@@ -109,7 +112,8 @@ On bands where it makes sense, the card offers a text decoder; you can also pick
 | ISM sensors | 433 / 868 / 915 MHz devices: weather stations, tyre-pressure sensors, door sensors, utility meters ... (200+ types, via rtl_433) | Many sensors transmit only every 30-60 seconds, and send each message several times; repeats are shown once with a count, e.g. `(x3)`. |
 
 Received messages appear on the card and, in full, in the **Messages** list in the SDRstar panel. The decoder listens
-exactly where your cursor is. A text decoder runs *instead of* an identification / follow job.
+exactly where your cursor is. A text decoder runs *instead of* an identification / follow job. If you move the receiver window away from the
+signal a decoder is listening to, the decoder stops and says so.
 
 ## The SDRstar panel (left side)
 

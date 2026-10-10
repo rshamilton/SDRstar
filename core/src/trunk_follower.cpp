@@ -16,6 +16,7 @@ const char* followStateName(FollowState s) {
     case FollowState::OnControl: return "on control channel";
     case FollowState::FollowingCall: return "following call";
     case FollowState::Hopped: return "hopped (control channel out of view)";
+    case FollowState::Paused: return "paused (receiver window moved away)";
     case FollowState::Failed: return "failed";
     }
     return "?";
@@ -167,6 +168,15 @@ void TrunkFollower::onIq(const cf* x, size_t n) {
     dsd_->pushPcm(pcm_.data(), n);
 }
 
+bool TrunkFollower::returnToControl() {
+    double c;
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        c = st_.controlHz;
+    }
+    return handleTuneRequest(c);
+}
+
 bool TrunkFollower::handleTuneRequest(double hz) {
     std::lock_guard<std::mutex> tl(tuneMtx_);
     if (!dsd_ || channel_ < 0) { return false; }
@@ -309,6 +319,30 @@ void TrunkFollower::monitorLoop() {
             continue;
         }
 
+        // The USER (or another SDR++ module) may have moved the receiver window.  Channels keep their absolute
+        // frequency, so the only question is whether the channel we are on is still inside the window.
+        {
+            const bool active = st_.state == FollowState::OnControl || st_.state == FollowState::FollowingCall || st_.state == FollowState::Hopped;
+            if (active || st_.state == FollowState::Paused) {
+                const bool visible = channelFits(host_->caps(), host_->centerHz(), WindowChannel{st_.currentHz, cfg_.channelBwHz, ""});
+                const bool onControl = std::fabs(st_.currentHz - st_.controlHz) < kSameFreqHz;
+                if (active && !visible) {
+                    st_.state = FollowState::Paused;
+                    st_.controlVisible = channelFits(host_->caps(), host_->centerHz(), WindowChannel{st_.controlHz, cfg_.channelBwHz, ""});
+                    st_.problem = std::string("Paused: the receiver window was moved away from ") + (onControl ? "the control channel " : "the channel being followed ") +
+                                  formatFrequency(st_.currentHz) + ".";
+                    st_.detail = "Move it back, or press \"Return to control channel\". Following resumes by itself once the channel is in view again.";
+                    event(FollowEvent::Warn, st_.problem);
+                } else if (st_.state == FollowState::Paused && visible) {
+                    st_.state = onControl ? FollowState::OnControl : FollowState::FollowingCall;
+                    st_.controlVisible = onControl || channelFits(host_->caps(), host_->centerHz(), WindowChannel{st_.controlHz, cfg_.channelBwHz, ""});
+                    st_.problem.clear();
+                    st_.detail.clear();
+                    event(FollowEvent::Info, "The channel is back in view; following resumed.");
+                }
+            }
+        }
+
         const double sinceStart = std::chrono::duration<double>(clk::now() - startTime_).count();
         switch (st_.state) {
         case FollowState::Starting:
@@ -333,6 +367,9 @@ void TrunkFollower::monitorLoop() {
             break;
         case FollowState::FollowingCall:
             st_.headline = (st_.call.empty() ? "Listening to a call" : st_.call) + "  on  " + formatFrequency(st_.currentHz);
+            break;
+        case FollowState::Paused:
+            st_.headline = "Following paused: the receiver window was moved away from " + formatFrequency(st_.currentHz);
             break;
         case FollowState::Hopped:
             st_.headline = (st_.call.empty() ? "Listening to a call" : st_.call) + "  on  " + formatFrequency(st_.currentHz) +

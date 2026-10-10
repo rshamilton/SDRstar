@@ -35,6 +35,7 @@ enum class FollowState {
     OnControl,      // parked on the control channel, waiting for calls
     FollowingCall,  // on a voice channel (control channel may or may not still be in view)
     Hopped,         // on a voice channel OUTSIDE the window that holds the control channel: control is lost for now
+    Paused,         // the USER moved the receiver window away from the channel being followed; resumes when it is back
     Failed,
 };
 const char* followStateName(FollowState s);
@@ -97,6 +98,8 @@ public:
 
     // Exposed for tests: process one retune request exactly as the rigctl bridge would.
     bool handleTuneRequest(double hz);
+    // Put the window (and the follower) back on the control channel: the answer to a user who moved the receiver away.
+    bool returnToControl();
 
 private:
     void monitorLoop();

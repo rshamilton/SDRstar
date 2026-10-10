@@ -235,9 +235,17 @@ const SmartEngine::StoredResult* SmartEngine::resultFor(double freqHz) const {
 void SmartEngine::tick() {
     if (!started_) { return; }
     const double now = nowSec();
+    host_.reconcile();   // the user may have moved the receiver window: keep hidden channels on their frequency
     updateCursor(now);
     pollProbe(now);
     autoProbe(now);
+    // A job listening on one fixed frequency is useless once the user moves the window away from it: say so and stop.
+    if (job_ == JobKind::Probing || job_ == JobKind::Decoding || job_ == JobKind::Helper) {
+        if (!sdrstar::channelFits(host_.caps(), host_.centerHz(), sdrstar::WindowChannel{jobFreq_, jobBw_, ""})) {
+            if (job_ != JobKind::Probing || !jobAutomatic_) { addNote("Stopped: the receiver window was moved away from " + formatFrequency(jobFreq_) + "."); }
+            stopJob();
+        }
+    }
     if (job_ == JobKind::Decoding && !decoder_.running()) {
         addNote("The decoder stopped.");
         stopJob();
@@ -343,6 +351,7 @@ void SmartEngine::startProbe(double freqHz, double bwHz, bool automatic) {
     job_ = JobKind::Probing;
     jobAutomatic_ = automatic;
     jobFreq_ = freqHz;
+    jobBw_ = c.channelBwHz;
     lastProbe_ = ProbeProgress();
     lastProbe_.active = true;
     lastProbe_.freqHz = freqHz;
@@ -435,6 +444,7 @@ void SmartEngine::startDecode(const StoredResult& r) {
     }
     job_ = JobKind::Decoding;
     jobFreq_ = freq;
+    jobBw_ = c.bwHz;
     jobTitle_ = r.verdict.title;
     setRadioMuted(true);
 }
@@ -462,6 +472,7 @@ void SmartEngine::startHelper(const std::string& id, double freqHz) {
     }
     job_ = JobKind::Helper;
     jobFreq_ = freqHz;
+    jobBw_ = sp->channelBwHz;
     jobTitle_ = sp->title;
 }
 
@@ -505,6 +516,9 @@ void SmartEngine::doAction(CardAction a) {
         }
         break;
     }
+    case ACT_RETURN:
+        if (job_ == JobKind::Following) { follower_.returnToControl(); }
+        break;
     case ACT_STOP: stopJob(); break;
     case ACT_DISMISS: dismissCard(); break;
     case ACT_TOGGLE_HOP:
@@ -541,7 +555,9 @@ CardModel SmartEngine::card() {
         m.visible = true;
         m.pinned = true;
         m.freqHz = st.currentHz > 0 ? st.currentHz : jobFreq_;
-        m.tone = !st.problem.empty() ? CardTone::Problem : (st.state == FollowState::Hopped ? CardTone::Attention : CardTone::Good);
+        m.tone = st.state == FollowState::Paused ? CardTone::Attention
+                 : !st.problem.empty()           ? CardTone::Problem
+                 : (st.state == FollowState::Hopped ? CardTone::Attention : CardTone::Good);
         m.title = st.headline.empty() ? "Following trunked system" : st.headline;
         m.subtitle = st.system;
         if (!st.problem.empty()) { m.warning = st.problem; }
@@ -549,6 +565,7 @@ CardModel SmartEngine::card() {
         char buf[160];
         std::snprintf(buf, sizeof buf, "Window moves: %d   Calls followed: %d   Hops: %d   Skipped: %d", st.windowRetunes, st.channelMoves + st.hops, st.hops, st.refusals);
         m.lines.push_back(buf);
+        if (st.state == FollowState::Paused) { m.buttons.push_back({ACT_RETURN, "Return to control channel", true, true}); }
         m.buttons.push_back({ACT_TOGGLE_HOP, settings_.allowHop ? "Hop to out-of-range calls: ON" : "Hop to out-of-range calls: OFF", false, true});
         m.buttons.push_back({ACT_STOP, "Stop following", true, true});
         return m;

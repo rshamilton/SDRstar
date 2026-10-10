@@ -121,6 +121,38 @@ TEST(faster_sample_rate_keeps_control_and_voice_in_one_window) {
     f.stop();
 }
 
+// The USER moves the receiver window (types another frequency, drags the waterfall) while following.
+TEST(user_moving_the_window_away_pauses_following_and_it_resumes) {
+    if (!dsdExe() || !fixDir()) { return; }
+    SimHost host(851.2e6, 2.4e6);
+    host.addSignal("CC", kCc, loadFixture("p25p1_cqpsk_cc"));
+    TrunkFollower f(&host);
+    TrunkFollower::Config c;
+    c.dsdExe = dsdExe();
+    c.controlHz = kCc;
+    std::string err;
+    CHECK(f.start(c, err));
+    CHECK(waitFor(f, 25.0, [](const FollowStatus& s) { return s.state == FollowState::OnControl; }));
+    // 1. the user retunes far away: following pauses, says why, and the control channel is not claimed to be visible
+    CHECK(host.setCenter(700e6, err));
+    CHECK(waitFor(f, 5.0, [](const FollowStatus& s) { return s.state == FollowState::Paused; }));
+    FollowStatus st = f.status();
+    CHECK_CONTAINS(st.problem, "moved away");
+    CHECK_CONTAINS(st.headline, "paused");
+    CHECK(!st.controlVisible);
+    // 2. the user moves back by hand: it resumes by itself and the message goes away
+    CHECK(host.setCenter(851.2e6, err));
+    CHECK(waitFor(f, 5.0, [](const FollowStatus& s) { return s.state == FollowState::OnControl && s.problem.empty(); }));
+    // 3. away again, then the "Return to control channel" button
+    CHECK(host.setCenter(700e6, err));
+    CHECK(waitFor(f, 5.0, [](const FollowStatus& s) { return s.state == FollowState::Paused; }));
+    CHECK(f.returnToControl());
+    CHECK(waitFor(f, 5.0, [](const FollowStatus& s) { return s.state == FollowState::OnControl && s.controlVisible; }));
+    CHECK(std::fabs(host.centerHz() - kCc) < 0.96e6);
+    dumpLog(f.status());
+    f.stop();
+}
+
 TEST(bad_inputs_fail_cleanly) {
     SimHost host(851.2e6, 2.4e6);
     TrunkFollower f(&host);

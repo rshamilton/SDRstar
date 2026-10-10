@@ -62,6 +62,10 @@ Listed because they show what the tests are good for:
 * **A data race in the trunk follower** (found by running the whole suite under ThreadSanitizer).
 * **Follow started on the wrong channel** when an automatic background probe of another signal was still running (found in
   a long GUI soak; each identification result now carries the exact frequency it belongs to).
+* **Retuning the radio by hand while following** left the hidden channels listening on the wrong frequency (SDR++ keeps a
+  channel's offset, not its frequency). Channels are now re-pinned to their absolute frequency; if the window leaves the
+  channel being followed, following pauses with an explanation, resumes by itself, and offers "Return to control channel"
+  (`trunk_follower::user_moving_the_window_away_pauses_following_and_it_resumes`).
 * **The cursor card pointed at the wrong signal** for VFOs whose reference is their edge (USB/LSB/RAW), because the
   VFO's reference point was used instead of its centre.
 * **Endless re-testing**: a steady analog channel was re-probed every 90 s forever (several decoder processes each time);

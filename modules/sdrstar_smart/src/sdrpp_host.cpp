@@ -59,9 +59,27 @@ void SdrppRadioHost::applyOffsetsLocked() {
     const double center = centerHz();
     for (auto& kv : chans_) {
         Chan& c = *kv.second;
-        c.vfo->setOffset(c.absHz - center);
-        c.vfo->reset();
+        const bool fits = fitsLocked(c.absHz, c.bwHz);
+        c.inWindow = fits;
+        if (fits) {
+            c.vfo->setOffset(c.absHz - center);
+            c.vfo->reset();
+        }
     }
+    lastCenter_ = center;
+    lastRate_ = sigpath::iqFrontEnd.getSampleRate();
+}
+
+bool SdrppRadioHost::reconcile() {
+    std::lock_guard<std::mutex> lk(mtx_);
+    if (chans_.empty()) {
+        lastCenter_ = centerHz();
+        lastRate_ = sigpath::iqFrontEnd.getSampleRate();
+        return false;
+    }
+    if (std::fabs(centerHz() - lastCenter_) < 0.5 && std::fabs(sigpath::iqFrontEnd.getSampleRate() - lastRate_) < 0.5) { return false; }
+    applyOffsetsLocked();
+    return true;
 }
 
 bool SdrppRadioHost::setCenter(double hz, std::string& error) {
@@ -100,6 +118,7 @@ bool SdrppRadioHost::setCenter(double hz, std::string& error) {
 void SdrppRadioHost::onBlock(dsp::complex_t* data, int count, void* ctx) {
     Chan* c = (Chan*)ctx;
     static_assert(sizeof(dsp::complex_t) == sizeof(sdrstar::cf), "complex layout");
+    if (!c->inWindow.load()) { return; }
     if (c->sink) { c->sink(reinterpret_cast<const sdrstar::cf*>(data), (size_t)count); }
 }
 
@@ -140,6 +159,7 @@ bool SdrppRadioHost::moveChannel(int channel, double absFreqHz) {
     c.absHz = absFreqHz;
     c.vfo->setOffset(absFreqHz - centerHz());
     c.vfo->reset();  // drop filter history from the previous frequency
+    c.inWindow = true;
     return true;
 }
 
