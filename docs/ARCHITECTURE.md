@@ -19,6 +19,7 @@ that are already proven on macOS, and only the part that does not exist anywhere
 | Digital voice and control-channel decoding, trunk logic: P25 Phase 1/2, DMR (Tier II/III, Connect Plus, Capacity Plus), NXDN, dPMR, D-STAR, YSF, M17, EDACS, ProVoice | **DSD-neo** (GPL-3.0), a child process | Actively maintained successor of DSD-FME; takes PCM on stdin, has a JSON telemetry API, a rigctl-based trunk-follow protocol, a large regression suite of real captures, and macOS support. |
 | IMBE/AMBE vocoder used by DSD-neo | **mbelib-neo** | Required by DSD-neo (patent note in `THIRD_PARTY.md`). |
 | Pagers (POCSAG / FLEX), APRS (AFSK1200), weather alerts (EAS) | **multimon-ng** 1.6.2 | Standard tool. |
+| Aircraft (ADS-B, 1090 MHz) | **SDRstar's own decoder** (`core/src/adsb.cpp`) | Small, well-specified, testable against published vectors; no extra program to ship. |
 | 433 / 868 / 915 MHz sensors, TPMS, weather stations, utility meters | **rtl_433** 25.12 | Standard tool, 200+ device decoders. |
 | USB driver for the RTL-SDR Blog V4 | **librtlsdr 2.0.3** | Native V4 / V4L support (HF upconverter handling, bias-tee GPIO). |
 | Everything "smart": signal finder, classifier, cards, trunk-follow planner, status explanations | **`sdrstar_core`** (pure C++ library, `core/`) and the **`sdrstar_smart`** SDR++ module (`modules/sdrstar_smart`) | The part that does not exist anywhere else. |
@@ -129,6 +130,11 @@ EDACS need a channel list (CSV) from the user. NXDN96 and dPMR decode weakly thr
 (`helperSpecs()`): pagers, APRS and EAS use multimon-ng fed 22.05 kHz audio (48 kHz discriminator output through a
 polyphase resampler); ISM sensors use rtl_433 fed a 250 kS/s complex-float channel (`-r cf32:-`). Repeated copies of a
 message are collapsed into one line with a count. Each helper runs in a private working directory with its own HOME.
+ADS-B is the one decoder written in SDRstar itself (`core/src/adsb.cpp`): a Mode S pulse-position demodulator with CRC-24
+verification and single-bit repair, plus the message decoder (callsign, altitude, CPR position, velocity); it plugs into the
+same interface as a "native" helper and shows its aircraft table instead of text lines. It was written rather than bundled
+because the only small standalone decoder is unmaintained, and the format is simple enough to verify against published
+reference messages and a real recording.
 Adding a decoder is a new entry plus (if needed) a card button.
 
 ## 6. Safety and testing

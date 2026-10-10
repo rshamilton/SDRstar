@@ -7,7 +7,7 @@ not be tested here it says so.
 
 | Layer | What it proves | Where |
 | --- | --- | --- |
-| **Core unit and integration tests** (66 test cases, about 530 checks, 11 programs) | The planner, rigctl bridge, process handling, signal detection, identification evidence rules, trunk follower, text decoders, resampler. The integration tests run the **real DSD-neo, multimon-ng and rtl_433** on recorded signals, with the radio replaced by a simulator. | `core/tests`, run with `ctest` (or `scripts/test_core.sh`) |
+| **Core unit and integration tests** (77 test cases, 618 checks, 12 programs) | The planner, rigctl bridge, process handling, signal detection, identification evidence rules, trunk follower, text decoders, resampler. The integration tests run the **real DSD-neo, multimon-ng and rtl_433** on recorded signals, with the radio replaced by a simulator. | `core/tests`, run with `ctest` (or `scripts/test_core.sh`) |
 | **Real-air trunk following** | The follower, with the real DSD-neo, on a real recorded P25 system, with a simulated RTL-SDR window moved over the recording. | `core/tests/test_real_trunk.cpp` |
 | **Sanitizers** | No data races (ThreadSanitizer) and no memory errors (AddressSanitizer / UBSan) in the core. | `scripts/ci_tsan.sh` runs on every push; AddressSanitizer + UBSan + LeakSanitizer were run by hand over the whole suite: no reports |
 | **Safety audit** | The safety claims in [SAFETY.md](SAFETY.md) hold in the source. | `scripts/safety_audit.sh`, every push |
@@ -48,6 +48,7 @@ the 73 entries (63 verified, 8 plausible, 2 rejected), is in [`tests/samples/`](
 | Spectrum detector: finds signals, centre / width, adjacent channels, bursts, no phantom edge signals, DC spike, retune by absolute frequency | 12 unit-test cases on real recordings and synthetic scenes | pass |
 | Pager (POCSAG) text decoding | real pager audio **and** real pager IQ through the full GUI | pass (decoded the sample's known test page) |
 | ISM sensors (rtl_433) | real sensor captures, including through the full GUI on the 1 MS/s recording | pass (Acurite id 4700, 2.5 C, 58 %, as expected) |
+| Aircraft (ADS-B) decoder: demodulator, CRC with single-bit repair, callsign / altitude / CPR position / velocity | the published reference messages from "The 1090 MHz Riddle" (decode to the published callsign, position and velocity); a synthetic modulator with noise, back-to-back frames, odd chunk sizes and injected bit errors; **a real 2 MS/s recording** through the unit test and the full GUI | pass: 145 CRC-verified frames from the one aircraft in the recording, where the reference decoder (dump1090) finds 120; noise alone produces none |
 | APRS, EAS | synthetic signals through the real multimon-ng and our resampler | pass (synthetic only; no real APRS/EAS recording was found) |
 | Child-process safety: end on host death, kill escalation, bounded writes | `test_subprocess` | pass (decoder gone 0.02 s after SIGKILL of the host) |
 | Whole GUI: labels, cursor card, auto-identification chip, follow card, side panel, message list | virtual-display runs with real recordings | pass; found and fixed several real problems (below) |
@@ -90,7 +91,8 @@ nothing for it). CI therefore only fails on sanitizer *reports*.
 * **DMR control channels in the real capture** decode mostly with CRC errors, so DMR trunk *semantics* were not verified
   beyond sync / colour code / short link control. DMR, NXDN and EDACS trunking were exercised with the decoder's own
   fixtures, not with a real multi-channel system.
-* **TETRA, ADS-B, AIS, ACARS, DAB** are not decoded.
+* **TETRA, AIS, ACARS, DAB** are not decoded.
+* **ADS-B needs a channel at least about 1.8 MHz wide** (so the 2.4 MS/s sample rate): measured on the real recording, 135 frames at 1.9 MHz, 122 at 1.8 MHz and none at 1.5 MHz, because the 0.5 microsecond pulses blur together. SDRstar says so when the sample rate is too low. The ADS-B decoder ignores other Mode S message types (altitude / identity replies), so it shows fewer messages than a full decoder would count.
 * **Short recordings**: the real P25 capture is only about 4 seconds long, enough to decode the control channel and see real
   grants but short for long-running state machine behaviour.
 

@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "sdrstar/adsb.h"
 #include "sdrstar/bounded_writer.h"
 #include "sdrstar/channel_pcm.h"
 #include "sdrstar/radio_host.h"
@@ -32,6 +33,9 @@ struct HelperSpec {
     double iqRateHz = 250000;           // IqCf32 only
     std::vector<std::string> args;      // "{FREQ}" -> centre frequency in Hz, "{RATE}" -> IQ rate in Hz
     std::string idleHint;               // shown while nothing has been decoded yet
+    bool native = false;                // decoded inside SDRstar (no helper program): "adsb"
+    std::string countNoun = "received"; // "3 received", "12 aircraft"
+    double fixedFreqHz = 0;             // nonzero: always listens exactly here (ADS-B at 1090 MHz), wherever the cursor is
 };
 
 const std::vector<HelperSpec>& helperSpecs();
@@ -63,15 +67,15 @@ public:
     // Process + hidden channel on a radio host.
     bool start(RadioHost* host, const HelperSpec& spec, const std::string& exePath, double freqHz, std::string& error);
     void stop();
-    bool running() const { return proc_ && proc_->running(); }
+    bool running() const { return native_ ? true : (proc_ && proc_->running()); }
 
     void feedPcm48k(const int16_t* pcm, size_t n);       // Pcm22050 specs
     void feedIq(const cf* iq, size_t n);                 // IqCf32 specs
 
     std::vector<HelperLine> lines(size_t maxLines = 300) const;
     std::vector<std::string> rawLines() const;
-    long long messageCount() const { return count_.load(); }
-    long long droppedBytes() const { return writer_.dropped(); }
+    long long messageCount() const { return native_ ? (long long)adsbCount_.load() : count_.load(); }
+    long long droppedBytes() const { return native_ ? 0 : writer_.dropped(); }
     const HelperSpec& spec() const { return spec_; }
     double freqHz() const { return freqHz_; }
     std::string lastError() const;
@@ -92,6 +96,14 @@ private:
     std::vector<int16_t> rsBuf_;
     FILE* trace_ = nullptr;                              // dev aid: SDRSTAR_HELPER_TRACE=<file> keeps what was fed
     size_t traceBytes_ = 0;
+
+    // native ADS-B decoder
+    bool native_ = false;
+    std::unique_ptr<ModeSDemod> adsbDemod_;
+    AdsbTable adsbTable_;           // guarded by mtx_
+    std::atomic<size_t> adsbCount_{0};
+    double lastTableRefresh_ = 0;
+    void refreshAdsbLines();
 
     mutable std::mutex mtx_;
     std::vector<HelperLine> lines_;

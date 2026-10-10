@@ -30,7 +30,7 @@ group_end
 export SDRSTAR_DSD_NEO="$DSD" SDRSTAR_FIXTURES="$FIX"
 export TSAN_OPTIONS="halt_on_error=0 second_deadlock_stack=1"
 bad=0
-for t in test_subprocess test_rigctl_bridge test_dsd_session test_probe_manager test_trunk_follower test_helper_decoder test_signal_detector test_resampler; do
+for t in test_adsb test_subprocess test_rigctl_bridge test_dsd_session test_probe_manager test_trunk_follower test_helper_decoder test_signal_detector test_resampler; do
     [ -x "$OUT/$t" ] || { warn "$t was not built"; continue; }
     log "TSAN: $t"
     rc=0

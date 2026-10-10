@@ -109,6 +109,7 @@ On bands where it makes sense, the card offers a text decoder; you can also pick
 | Pager messages | POCSAG (512 / 1200 / 2400 baud) and FLEX pager messages | Pager traffic is often readable by anyone, so the privacy rules where you live matter. Corrupted messages show as garbage text; that is the radio link, not a bug. |
 | APRS | AFSK 1200 packets (amateur radio position and weather reports, 144.390 MHz in North America) | |
 | Weather alerts | EAS / SAME alert headers (NOAA weather radio) | Rare; nothing shows for long stretches. |
+| Aircraft (ADS-B) | Aircraft broadcasts on 1090 MHz: callsign, altitude, speed, heading, climb rate and position, one line per aircraft (heard at least twice; dropped after 90 s of silence) | Pick it in the SDRstar panel and press **Listen on 1090 MHz**: it always listens at exactly 1090 MHz, wherever your cursor is, and moves the receiver window there if needed (and says so). Needs the default 2.4 MS/s sample rate and an antenna with a view of the sky; range is line of sight. |
 | ISM sensors | 433 / 868 / 915 MHz devices: weather stations, tyre-pressure sensors, door sensors, utility meters ... (200+ types, via rtl_433) | Many sensors transmit only every 30-60 seconds, and send each message several times; repeats are shown once with a count, e.g. `(x3)`. |
 
 Received messages appear on the card and, in full, in the **Messages** list in the SDRstar panel. The decoder listens

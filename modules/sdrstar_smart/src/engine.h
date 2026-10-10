@@ -38,6 +38,7 @@ enum CardAction {
     ACT_HELPER_APRS,
     ACT_HELPER_EAS,
     ACT_HELPER_ISM,
+    ACT_HELPER_ADSB,
     ACT_RETURN,   // put the receiver window back on the trunk's control channel
 };
 

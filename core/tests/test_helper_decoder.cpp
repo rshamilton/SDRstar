@@ -165,6 +165,41 @@ static bool decodesSynthetic(const char* specId, const char* file, const char* e
 TEST(aprs_packet_is_decoded_through_the_helper_path) { CHECK(decodesSynthetic("aprs", "aprs.raw", "APRS: N0CALL-9>APRS,WIDE1-1:!4903.50N/07201.75W")); }
 TEST(eas_alert_header_is_decoded_through_the_helper_path) { CHECK(decodesSynthetic("eas", "eas.raw", "EAS: ZCZC-WXR-RWT-012057")); }
 
+// ADS-B is decoded inside SDRstar (no helper program): same HelperDecoder interface, lines are the aircraft table.
+TEST(adsb_runs_as_a_native_helper_and_lists_aircraft) {
+    const std::string cu8 = dataFile("SDRSTAR_ADSB_CU8", "adsb_modes1_2000k.cu8");
+    const HelperSpec* sp = findHelperSpec("adsb");
+    CHECK(sp != nullptr);
+    if (sp) {
+        CHECK(sp->native);
+        CHECK_NEAR(sp->fixedFreqHz, 1090e6, 1.0);
+    }
+    if (cu8.empty() || !sp) { std::printf("  (skipped: run tools/fetch_test_samples.sh for the ADS-B capture)\n"); return; }
+    std::vector<uint8_t> bytes = slurp(cu8.c_str());
+    std::vector<cf> iq;
+    for (size_t i = 0; i + 1 < bytes.size(); i += 2) { iq.emplace_back(((float)bytes[i] - 127.5f) / 127.5f, ((float)bytes[i + 1] - 127.5f) / 127.5f); }
+    HelperDecoder d;
+    std::string err;
+    CHECK(d.startProcess(*sp, "", 0, err));   // no program to run
+    CHECK(d.running());
+    for (size_t i = 0; i < iq.size(); i += 5000) {
+        d.feedIq(iq.data() + i, std::min<size_t>(5000, iq.size() - i));
+        std::this_thread::sleep_for(std::chrono::milliseconds(3));   // lets the table refresh timer fire
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(700));
+    d.feedIq(iq.data(), 100);   // one more call after the refresh interval
+    CHECK_EQ(d.messageCount(), 1LL);   // one aircraft
+    auto ls = d.lines(5);
+    CHECK_EQ(ls.size(), (size_t)1);
+    if (!ls.empty()) {
+        std::printf("  %s\n", ls[0].text.c_str());
+        CHECK_CONTAINS(ls[0].text, "4D2023");
+        CHECK_CONTAINS(ls[0].text, "AMC421");
+    }
+    d.stop();
+    CHECK(!d.running());
+}
+
 TEST(rtl433_decodes_an_ism_sensor_from_float_iq_on_stdin) {
     const char* tool = std::getenv("SDRSTAR_RTL433");
     const std::string cu8 = dataFile("SDRSTAR_ISM_CU8", "nexus_g027_433.92M_250k.cu8");

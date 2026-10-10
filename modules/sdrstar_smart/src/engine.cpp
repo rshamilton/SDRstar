@@ -461,18 +461,42 @@ void SmartEngine::startDecode(const StoredResult& r) {
 bool SmartEngine::helperAvailable(const std::string& id) const {
     const sdrstar::HelperSpec* sp = sdrstar::findHelperSpec(id);
     if (!sp) { return false; }
+    if (sp->native) { return true; }   // decoded inside SDRstar: no helper program needed
     return !(sp->exeName == "rtl_433" ? rtl433Path_ : multimonPath_).empty();
 }
 
 void SmartEngine::startHelper(const std::string& id, double freqHz) {
     const sdrstar::HelperSpec* sp = sdrstar::findHelperSpec(id);
     if (!sp) { return; }
-    const std::string& exe = sp->exeName == "rtl_433" ? rtl433Path_ : multimonPath_;
-    if (exe.empty()) {
+    static const std::string kNoProgram;
+    const std::string& exe = sp->native ? kNoProgram : (sp->exeName == "rtl_433" ? rtl433Path_ : multimonPath_);
+    if (!sp->native && exe.empty()) {
         addNote("The " + sp->exeName + " helper was not found, so " + sp->title + " cannot be decoded.");
         return;
     }
     stopJob();
+    if (sp->fixedFreqHz > 0) { freqHz = sp->fixedFreqHz; }   // e.g. ADS-B is always at 1090 MHz, wherever the cursor is
+    // Make sure the signal is inside the receiver window (a text decoder listens on a fixed channel). If it is not,
+    // move the window there when the radio can retune, and say so.
+    {
+        const sdrstar::ReceiverCaps caps = host_.caps();
+        const sdrstar::WindowChannel ch{freqHz, sp->channelBwHz, sp->title};
+        if (!sdrstar::channelFits(caps, host_.centerHz(), ch)) {
+            const sdrstar::Plan p = sdrstar::planWindow(caps, host_.centerHz(), {ch}, {});
+            if (p.kind == sdrstar::PlanKind::Refuse) {
+                addNote(p.summary + " " + p.detail);
+                return;
+            }
+            if (p.hardwareRetune) {
+                std::string e;
+                if (!host_.setCenter(p.centerHz, e)) {
+                    addNote("Could not move the receiver window to " + formatFrequency(p.centerHz) + ": " + e);
+                    return;
+                }
+                addNote("Moved the receiver window to " + formatFrequency(p.centerHz) + " so " + formatFrequency(freqHz) + " is in view.");
+            }
+        }
+    }
     std::string err;
     helper_.setWorkDir(root_ + "/sdrstar_work/helper-" + id);
     if (!helper_.start(&host_, *sp, exe, freqHz, err)) {
@@ -493,6 +517,7 @@ void SmartEngine::doAction(CardAction a) {
     case ACT_HELPER_APRS: startHelper("aprs", cursorFreq_); break;
     case ACT_HELPER_EAS: startHelper("eas", cursorFreq_); break;
     case ACT_HELPER_ISM: startHelper("ism", cursorFreq_); break;
+    case ACT_HELPER_ADSB: startHelper("adsb", 1090e6); break;
     case ACT_IDENTIFY: identifyAtCursor(); break;
     case ACT_FOLLOW:
         if (const StoredResult* r = resultFor(snapFrequency(cursorFreq_, cursorBw_))) {
@@ -544,7 +569,7 @@ std::string SmartEngine::decoderStatusLine() {
     case JobKind::Probing: return lastProbe_.status;
     case JobKind::Following: return follower_.status().headline;
     case JobKind::Decoding: return "Decoding " + jobTitle_;
-    case JobKind::Helper: return jobTitle_ + " at " + formatFrequency(jobFreq_) + ": " + std::to_string(helper_.messageCount()) + " received";
+    case JobKind::Helper: return jobTitle_ + " at " + formatFrequency(jobFreq_) + ": " + std::to_string(helper_.messageCount()) + " " + helper_.spec().countNoun;
     default: return "Ready.";
     }
 }
@@ -609,7 +634,7 @@ CardModel SmartEngine::card() {
         m.freqHz = jobFreq_;
         m.tone = CardTone::Good;
         m.title = jobTitle_;
-        m.subtitle = mhz(jobFreq_) + "   \xC2\xB7   " + std::to_string(helper_.messageCount()) + " received";
+        m.subtitle = mhz(jobFreq_) + "   \xC2\xB7   " + std::to_string(helper_.messageCount()) + " " + helper_.spec().countNoun;
         auto ls = helper_.lines(5);
         if (ls.empty()) {
             const sdrstar::HelperSpec* sp = sdrstar::findHelperSpec(helper_.spec().id);
@@ -664,6 +689,7 @@ std::vector<CardButton> SmartEngine::helperButtonsFor(double f) const {
     add("aprs", "aprs", ACT_HELPER_APRS, "Decode APRS");
     add("eas", "eas", ACT_HELPER_EAS, "Read weather alerts");
     add("ism", "ism", ACT_HELPER_ISM, "Read sensors");
+    add("adsb", "adsb", ACT_HELPER_ADSB, "Read aircraft (ADS-B)");
     return v;
 }
 

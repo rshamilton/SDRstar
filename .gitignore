@@ -10,3 +10,6 @@ build-*/
 /dist/
 /.deps/
 __pycache__/
+
+# fetched test recordings (tools/fetch_test_samples.sh): licence not stated, never committed
+core/tests/data/signals/*.cu8

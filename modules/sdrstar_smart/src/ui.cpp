@@ -328,18 +328,21 @@ void SmartUi::drawMenu() {
     ImGui::Text("Text decoders");
     {
         static int pick = 0;
-        static const char* ids[] = {"pager", "aprs", "eas", "ism"};
-        static const char* names[] = {"Pager messages (POCSAG / FLEX)", "APRS packets", "Weather alerts (EAS)", "ISM sensors (433 / 868 / 915 MHz)"};
+        static const char* ids[] = {"pager", "aprs", "eas", "ism", "adsb"};
+        static const char* names[] = {"Pager messages (POCSAG / FLEX)", "APRS packets", "Weather alerts (EAS)", "ISM sensors (433 / 868 / 915 MHz)", "Aircraft (ADS-B, 1090 MHz)"};
         ImGui::SetNextItemWidth(w);
         if (ImGui::BeginCombo("##sdrstar_helper", names[pick])) {
-            for (int i = 0; i < 4; ++i) {
+            for (int i = 0; i < 5; ++i) {
                 if (ImGui::Selectable(names[i], pick == i)) { pick = i; }
             }
             ImGui::EndCombo();
         }
-        const bool can = eng_.cursorValid() && eng_.helperAvailable(ids[pick]);
+        const bool fixedFreq = std::string(ids[pick]) == "adsb";   // always 1090 MHz: no cursor needed
+        const bool can = (fixedFreq || eng_.cursorValid()) && eng_.helperAvailable(ids[pick]);
         if (!can) { style::beginDisabled(); }
-        if (ImGui::Button("Decode at the cursor##sdrstar_helper_go", ImVec2(w, 0))) { eng_.startHelper(ids[pick], eng_.cursorFreq()); }
+        if (ImGui::Button(fixedFreq ? "Listen on 1090 MHz##sdrstar_helper_go" : "Decode at the cursor##sdrstar_helper_go", ImVec2(w, 0))) {
+            eng_.startHelper(ids[pick], eng_.cursorFreq());
+        }
         if (!can) { style::endDisabled(); }
         if (!eng_.helperAvailable(ids[pick])) { ImGui::TextDisabled("This decoder was not found in the app bundle."); }
     }

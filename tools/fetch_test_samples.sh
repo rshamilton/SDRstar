@@ -32,3 +32,9 @@ fetch() { # <name> <url> <sha256>
 fetch nexus_g027_433.92M_250k.cu8 \
     "https://raw.githubusercontent.com/merbanan/rtl_433_tests/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/nexus/03/g027_433.92M_250k.cu8" \
     "c537b7416cc710dfd0d666cd8ff406ef24b5c57ea36a3d3a62cff4e12119002a"
+
+# Mode S / ADS-B at 2 MS/s, unsigned 8-bit IQ, 0.18 s, one aircraft (ICAO 4D2023, callsign AMC421). From the dump1090
+# repository (BSD-style licence).  dump1090 finds 120 DF17 frames in it.
+fetch adsb_modes1_2000k.cu8 \
+    "https://raw.githubusercontent.com/antirez/dump1090/efe64db3c6ba1520291331628a33c1e208e851a6/testfiles/modes1.bin" \
+    "3a33e16025da8669149c780075950b4e908ca036ea21f9583c113f60d5fb3094"

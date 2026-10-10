@@ -87,6 +87,18 @@ const std::vector<HelperSpec>& helperSpecs() {
         i.args = {"-r", "cf32:-", "-s", "{RATE}", "-f", "{FREQ}", "-F", "json"};
         i.idleHint = "Waiting for a sensor transmission (many only send every 30-60 s)...";
         s.push_back(i);
+        HelperSpec ad;
+        ad.id = "adsb";
+        ad.title = "Aircraft (ADS-B, 1090 MHz)";
+        ad.exeName = "";
+        ad.native = true;
+        ad.input = HelperSpec::IqCf32;
+        ad.channelBwHz = 1.9e6;   // the 0.5 us PPM pulses need about this much; narrower and bits become undecidable
+        ad.iqRateHz = 2.0e6;
+        ad.fixedFreqHz = 1090e6;
+        ad.countNoun = "aircraft";
+        ad.idleHint = "Waiting for aircraft (needs an antenna with a view of the sky; range is line of sight)...";
+        s.push_back(ad);
         return s;
     }();
     return v;
@@ -127,7 +139,24 @@ std::string summarizeHelperLine(const std::string& line) {
 bool HelperDecoder::startProcess(const HelperSpec& spec, const std::string& exePath, double freqHz, std::string& error) {
     stop();
     spec_ = spec;
-    freqHz_ = freqHz;
+    freqHz_ = spec.fixedFreqHz > 0 ? spec.fixedFreqHz : freqHz;
+    native_ = spec.native;
+    if (native_) {
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            lines_.clear();
+            adsbTable_ = AdsbTable();
+        }
+        adsbCount_ = 0;
+        count_ = 0;
+        lastTableRefresh_ = 0;
+        t0_ = nowSec();
+        adsbDemod_ = std::make_unique<ModeSDemod>([this](const uint8_t* m, int, bool repaired) {
+            std::lock_guard<std::mutex> lk(mtx_);
+            adsbTable_.update(m, nowSec() - t0_, repaired);
+        });
+        return true;
+    }
     {
         std::lock_guard<std::mutex> lk(mtx_);
         lines_.clear();
@@ -189,6 +218,7 @@ bool HelperDecoder::startProcess(const HelperSpec& spec, const std::string& exeP
 
 bool HelperDecoder::start(RadioHost* host, const HelperSpec& spec, const std::string& exePath, double freqHz, std::string& error) {
     if (!startProcess(spec, exePath, freqHz, error)) { return false; }
+    freqHz = freqHz_;   // a decoder with a fixed frequency (ADS-B) ignores where the cursor was
     host_ = host;
     if (spec.input == HelperSpec::Pcm22050) {
         tap_ = std::make_unique<ChannelPcmTap>();
@@ -222,6 +252,8 @@ void HelperDecoder::stop() {
         proc_.reset();
     }
     writer_.setProcess(nullptr);
+    adsbDemod_.reset();
+    native_ = false;
     if (trace_) {
         std::fclose(trace_);
         trace_ = nullptr;
@@ -239,7 +271,34 @@ void HelperDecoder::feedPcm48k(const int16_t* pcm, size_t n) {
     writer_.write(rsBuf_.data(), rsBuf_.size() * 2);
 }
 
+void HelperDecoder::refreshAdsbLines() {
+    std::lock_guard<std::mutex> lk(mtx_);
+    const double now = nowSec() - t0_;
+    adsbTable_.prune(now, 90.0);
+    std::vector<HelperLine> v;
+    for (const auto& a : adsbTable_.snapshot()) {
+        HelperLine l;
+        l.tSec = a.lastSeenSec;
+        l.text = AdsbTable::describe(a);
+        l.raw = l.text;
+        v.push_back(l);
+        if (v.size() >= 40) { break; }
+    }
+    lines_ = v;
+    adsbCount_ = v.size();
+}
+
 void HelperDecoder::feedIq(const cf* iq, size_t n) {
+    if (native_) {
+        if (!adsbDemod_) { return; }
+        adsbDemod_->feed(iq, n);
+        const double now = nowSec();
+        if (now - lastTableRefresh_ > 0.5) {
+            lastTableRefresh_ = now;
+            refreshAdsbLines();
+        }
+        return;
+    }
     if (!proc_) { return; }
     if (trace_ && traceBytes_ < (64u << 20)) {
         std::fwrite(iq, sizeof(cf), n, trace_);

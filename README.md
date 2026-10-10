@@ -26,8 +26,9 @@ decodes it, and follows trunked radio systems from the control channel to the ta
   automatically to hold what you need, anywhere from 0.5 MHz to 1.766 GHz. When something cannot be done, it says
   why in plain English ("The voice channel is at 853.1375 MHz, which this receiver cannot reach" / "5.2 MHz from the
   control channel; this receiver can only see 1.92 MHz at once").
-* **Text decoders.** Pager messages (POCSAG / FLEX), APRS, weather alerts (EAS) and 433 / 868 / 915 MHz sensors
-  (weather stations, tyre-pressure sensors, utility meters ... 200+ device types).
+* **Text decoders.** Pager messages (POCSAG / FLEX), APRS, weather alerts (EAS), 433 / 868 / 915 MHz sensors
+  (weather stations, tyre-pressure sensors, utility meters ... 200+ device types) and **aircraft (ADS-B, 1090 MHz)** with
+  callsign, altitude, speed, heading, climb rate and position.
 
 ## Install (no commands)
 
@@ -51,7 +52,7 @@ messages mean, the settings, and the channel-list files DMR / NXDN / EDACS syste
 * **DMR, NXDN and EDACS trunking need a channel list** (a small CSV, format in the user guide). P25 systems announce
   their own channel plan, so they need nothing.
 * **Weak spots measured on the test recordings:** NXDN96 and dPMR decode only weakly through the audio path SDRstar
-  uses, so they may be identified less reliably than the others. TETRA, ADS-B and AIS are not decoded.
+  uses, so they may be identified less reliably than the others. TETRA and AIS are not decoded. ADS-B needs the 2.4 MS/s sample rate (the default).
 * **Not yet tried on real hardware** (see status above). If something about the live radio path misbehaves, the
   [troubleshooting section](INSTALL-MAC.md#troubleshooting) says what to check.
 
