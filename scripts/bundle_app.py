@@ -21,6 +21,7 @@ After all edits (install_name_tool invalidates signatures) every Mach-O is ad-ho
 """
 
 import argparse
+import filecmp
 import os
 import plistlib
 import shutil
@@ -158,7 +159,9 @@ class Bundler:
     def place_framework(self, name, real_src):
         dest = os.path.join(self.frameworks, name)
         if name in self.placed:
-            if self.placed[name] != os.path.realpath(real_src):
+            # The same library may be reachable through two paths (e.g. SDR++ copies libsdrpp_core.dylib next to the
+            # executable as well); only a genuine content difference is an error.
+            if self.placed[name] != os.path.realpath(real_src) and not filecmp.cmp(self.placed[name], real_src, shallow=False):
                 raise BundleError(
                     "two different libraries are both called %s:\n  %s\n  %s" % (name, self.placed[name], real_src)
                 )

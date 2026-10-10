@@ -43,6 +43,8 @@ fi
 
 # ---------------------------------------------------------------------------------------------------------------
 # 2. Configure.  The module list below is explicit: a module not named here is OFF.
+#    (CMAKE_INSTALL_NAME_DIR is cleared: it is meant for the installed libraries in .deps/, SDR++'s own libraries
+#    must keep their @rpath/ names because bundle_app.py resolves them through the build tree.)
 # ---------------------------------------------------------------------------------------------------------------
 smart_args=()
 if [ "$HAVE_MODULE" = yes ]; then smart_args+=(-DOPT_BUILD_SDRSTAR_SMART=ON); fi
@@ -54,6 +56,7 @@ if [ -n "${SDRSTAR_USE_CCACHE:-}" ] && have ccache; then
 fi
 cmake -S "$SDRPP_SRC" -B "$SDRPP_BUILD" "${CMAKE_COMMON_ARGS[@]}" \
     -DUSE_BUNDLE_DEFAULTS=ON \
+    -DCMAKE_INSTALL_NAME_DIR= \
     -DOPT_BUILD_AIRSPY_SOURCE=OFF -DOPT_BUILD_AIRSPYHF_SOURCE=OFF -DOPT_BUILD_AUDIO_SOURCE=OFF \
     -DOPT_BUILD_BADGESDR_SOURCE=OFF -DOPT_BUILD_BLADERF_SOURCE=OFF -DOPT_BUILD_DRAGONLABS_SOURCE=OFF \
     -DOPT_BUILD_FILE_SOURCE=ON -DOPT_BUILD_FOBOSSDR_SOURCE=OFF -DOPT_BUILD_HACKRF_SOURCE=OFF \

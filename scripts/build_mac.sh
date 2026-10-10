@@ -64,11 +64,13 @@ if [ "$run_tests" = 1 ]; then
     step "helper functional tests" "$SCRIPTS/test_helpers.sh"
     step "core library tests (native build)" "$SCRIPTS/test_core.sh"
 fi
-if [ "$smoke" = 1 ]; then
-    step "launch test" "$SCRIPTS/smoke_launch.sh"
-fi
 if [ "$make_dmg" = 1 ]; then
     step "disk image" "$SCRIPTS/make_dmg.sh"
+fi
+# The launch test comes last on purpose: running the app can touch its bundle (extended attributes), and the disk
+# image must be made from the pristine, freshly signed bundle.
+if [ "$smoke" = 1 ]; then
+    step "launch test" "$SCRIPTS/smoke_launch.sh"
 fi
 
 log "finished in $(((SECONDS - t0) / 60)) min $(((SECONDS - t0) % 60)) s"
