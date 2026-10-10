@@ -111,7 +111,8 @@ private:
     std::unique_ptr<DsdSession> dsd_;
     RigctlBridge bridge_;
     int channel_ = -1;
-    FmDiscriminator disc_{48000.0, 6250.0};
+    FmDiscriminator disc_{48000.0, 6250.0};   // touched only by the host's DSP thread (onIq)
+    std::atomic<bool> discResetRequested_{false};   // other threads ask for a reset; onIq performs it
     std::vector<int16_t> pcm_;
     std::atomic<long long> muteUntilNs_{0};  // steady_clock ns; IQ before this instant is discarded
     std::chrono::steady_clock::time_point startTime_{};

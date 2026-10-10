@@ -162,6 +162,7 @@ void TrunkFollower::onIq(const cf* x, size_t n) {
     if (!running_.load() || !dsd_) { return; }
     if (nowNs() < muteUntilNs_.load()) { return; }  // tuner still settling after a retune: those samples are junk
     pcm_.resize(n);
+    if (discResetRequested_.exchange(false)) { disc_.reset(); }
     for (size_t i = 0; i < n; ++i) { pcm_[i] = toS16(disc_.process(x[i])); }
     dsd_->pushPcm(pcm_.data(), n);
 }
@@ -237,7 +238,7 @@ void TrunkFollower::applyPlan(const Plan& plan, double targetHz, bool toControl)
         event(FollowEvent::Problem, st_.problem);
         return;
     }
-    disc_.reset();
+    discResetRequested_ = true;
 
     std::lock_guard<std::mutex> lk(mtx_);
     const double prev = st_.currentHz;
