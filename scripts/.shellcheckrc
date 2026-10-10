@@ -1,0 +1,5 @@
+# Used by `shellcheck` when linting scripts/*.sh (CI runs: shellcheck scripts/*.sh scripts/lib/*.sh).
+external-sources=true
+source-path=SCRIPTDIR
+# SC2153 ("possible misspelling of SDRPP_SRC") is noise for variables defined in the sourced versions.env/deps.env.
+disable=SC2153

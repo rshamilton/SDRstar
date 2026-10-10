@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template for SDRstar.app/Contents/Info.plist.  @VERSION@, @BUILD@ and @MIN_OS@ are filled in by
+     scripts/bundle_app.py (version from the VERSION file, minimum macOS from versions.env).
+     Deliberately NOT present: NSMicrophoneUsageDescription, NSCameraUsageDescription, NSLocationUsageDescription.
+     SDRstar never records from a microphone, camera or location service; the radio is a USB device. -->
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleIdentifier</key><string>org.sdrstar.sdrstar</string>
+    <key>CFBundleName</key><string>SDRstar</string>
+    <key>CFBundleDisplayName</key><string>SDRstar</string>
+    <key>CFBundleExecutable</key><string>sdrstar</string>
+    <key>CFBundleIconFile</key><string>SDRstar</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleSignature</key><string>????</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundleShortVersionString</key><string>@VERSION@</string>
+    <key>CFBundleVersion</key><string>@BUILD@</string>
+    <key>LSMinimumSystemVersion</key><string>@MIN_OS@</string>
+    <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
+    <!-- Keep decoding at full speed when the window is hidden or covered: macOS "App Nap" must not throttle us. -->
+    <key>NSAppSleepDisabled</key><true/>
+    <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSHumanReadableCopyright</key><string>SDRstar is free software (GPL-3.0-or-later). Includes SDR++, DSD-neo, multimon-ng, rtl_433 and librtlsdr; see Resources/licenses.</string>
+</dict>
+</plist>

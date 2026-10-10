@@ -1,0 +1,369 @@
+# SDRstar build pipeline.
+#
+#   plan            decides (from the commit message / trigger) whether the expensive macOS jobs run
+#   linux           every push, 1x cost: lint, core unit + integration tests against pinned DSD-neo (apt libraries)
+#   linux-recipes   every push, 1x cost: dry run of the macOS dependency/helper/SDR++ recipes on Linux
+#   mac             ONLY when the head commit message contains [mac] (or [mac-arm] / [mac-intel] for one CPU type),
+#                   on workflow_dispatch, or for a v* tag.  The repository is private, so macOS minutes cost 10x.
+#   release         after BOTH macOS builds are green: refresh the "nightly" pre-release with the two DMGs
+#
+# See docs/MAC_BUILD.md for the details, cache keys and how to bump a pinned version.
+name: build
+
+on:
+  push:
+    branches: ["claude/**"]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: "Which macOS builds to run"
+        type: choice
+        options: [both, arm64, x86_64]
+        default: both
+
+permissions:
+  contents: read
+
+env:
+  # Bump to throw away every cached dependency / ccache entry (e.g. after changing compiler flags).
+  CACHE_VERSION: v1
+
+jobs:
+  # -------------------------------------------------------------------------------------------------------------
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mac: ${{ steps.p.outputs.mac }}
+      full: ${{ steps.p.outputs.full }}
+      matrix: ${{ steps.p.outputs.matrix }}
+    steps:
+      - id: p
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          MSG: ${{ github.event.head_commit.message }}
+          INPUT_ARCH: ${{ inputs.arch }}
+        run: |
+          arm=false; intel=false
+          if [ "$EVENT" = workflow_dispatch ]; then
+            case "${INPUT_ARCH:-both}" in
+              both) arm=true; intel=true ;;
+              arm64) arm=true ;;
+              x86_64) intel=true ;;
+            esac
+          elif [[ "$REF" == refs/tags/* ]]; then
+            arm=true; intel=true
+          else
+            if [[ "$MSG" == *"[mac]"* ]]; then arm=true; intel=true; fi
+            if [[ "$MSG" == *"[mac-arm]"* ]]; then arm=true; fi
+            if [[ "$MSG" == *"[mac-intel]"* ]]; then intel=true; fi
+          fi
+          items=()
+          if $arm; then items+=('{"arch":"arm64","runner":"macos-15","dmg":"SDRstar-AppleSilicon"}'); fi
+          if $intel; then items+=('{"arch":"x86_64","runner":"macos-15-intel","dmg":"SDRstar-Intel"}'); fi
+          mac=false; if [ "${#items[@]}" -gt 0 ]; then mac=true; fi
+          full=false; if $arm && $intel; then full=true; fi
+          if [ "${#items[@]}" -eq 0 ]; then items+=('{"arch":"none","runner":"ubuntu-latest","dmg":"none"}'); fi  # never empty
+          matrix="{\"include\":[$(IFS=,; echo "${items[*]}")]}"
+          { echo "mac=$mac"; echo "full=$full"; echo "matrix=$matrix"; } >> "$GITHUB_OUTPUT"
+          echo "macOS builds: $mac (both architectures: $full); matrix: $matrix"
+
+  # -------------------------------------------------------------------------------------------------------------
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: linux-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build cmake pkg-config libsndfile1-dev libssl-dev \
+            libpulse-dev libncurses-dev libcodec2-dev clang lld llvm shellcheck
+
+      - name: Lint (shellcheck, python syntax)
+        run: |
+          shellcheck scripts/*.sh scripts/lib/*.sh
+          python3 -m py_compile scripts/*.py scripts/lib/*.py packaging/*.py
+          for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f"; done
+          python3 - <<'PY'
+          import plistlib
+          t = open("packaging/Info.plist.in").read().replace("@VERSION@", "0").replace("@BUILD@", "1").replace("@MIN_OS@", "12.0")
+          plistlib.loads(t.encode())
+          print("Info.plist template parses")
+          PY
+
+      - name: Cache DSD-neo build
+        uses: actions/cache@v4
+        with:
+          path: .deps/linux-ci
+          key: linux-ci-${{ env.CACHE_VERSION }}-${{ hashFiles('versions.env', 'scripts/ci_linux.sh') }}
+
+      - name: Core tests incl. integration tests (pinned DSD-neo + fixtures)
+        run: scripts/ci_linux.sh
+
+      - name: Bundler / verifier logic on synthetic Mach-O files
+        run: scripts/test_bundler_logic.sh
+
+  # -------------------------------------------------------------------------------------------------------------
+  linux-recipes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: linux-recipes-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      SDRSTAR_USE_CCACHE: "1"
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 300M
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build cmake pkg-config ccache python3-venv perl \
+            libgl-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libasound2-dev
+
+      - name: Cache libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            .deps/x86_64
+            !.deps/x86_64/helpers
+          key: deps-linux-${{ env.CACHE_VERSION }}-${{ hashFiles('versions.env', 'scripts/deps.env', 'scripts/build_deps.sh', 'scripts/lib/buildenv.sh') }}
+
+      - name: Cache helpers
+        uses: actions/cache@v4
+        with:
+          path: .deps/x86_64/helpers
+          key: helpers-linux-${{ env.CACHE_VERSION }}-${{ hashFiles('versions.env', 'scripts/deps.env', 'scripts/build_deps.sh', 'scripts/build_helpers.sh', 'scripts/lib/buildenv.sh') }}
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-linux-${{ env.CACHE_VERSION }}-${{ github.sha }}
+          restore-keys: ccache-linux-${{ env.CACHE_VERSION }}-
+
+      - name: Build libraries (macOS recipe, Linux dry run)
+        run: scripts/build_deps.sh
+
+      - name: Build helpers
+        run: scripts/build_helpers.sh
+
+      - name: Helper functional tests
+        run: |
+          export LD_LIBRARY_PATH="$PWD/.deps/x86_64/lib"
+          scripts/test_helpers.sh "$PWD/.deps/x86_64/helpers"
+
+      - name: Core tests against the hermetic helper
+        run: |
+          export LD_LIBRARY_PATH="$PWD/.deps/x86_64/lib"
+          scripts/test_core.sh "$PWD/.deps/x86_64/helpers/dsd-neo"
+
+      - name: Build SDR++ with the SDRstar module (Linux dry run of the macOS CMake flags)
+        run: scripts/build_sdrpp.sh
+
+  # -------------------------------------------------------------------------------------------------------------
+  mac:
+    needs: [plan, linux, linux-recipes]
+    if: needs.plan.outputs.mac == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
+    concurrency:
+      group: mac-${{ matrix.arch }}-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      HOMEBREW_NO_ANALYTICS: "1"
+      SDRSTAR_USE_CCACHE: "1"
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 400M
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Build tools (disposable runner - Homebrew is fine for TOOLS, never for libraries)"
+        run: |
+          for pair in cmake:cmake ninja:ninja pkg-config:pkgconf ccache:ccache; do
+            tool="${pair%%:*}"; pkg="${pair##*:}"
+            command -v "$tool" >/dev/null || brew install "$pkg"
+          done
+          scripts/check_tools.sh
+          sw_vers; xcodebuild -version || true; uname -m
+
+      # ---- libraries: restore, build what is missing, save immediately (so a later failure does not lose them)
+      - name: Restore library cache
+        id: depscache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .deps/${{ matrix.arch }}
+            !.deps/${{ matrix.arch }}/helpers
+          key: deps-${{ matrix.arch }}-${{ env.CACHE_VERSION }}-${{ hashFiles('versions.env', 'scripts/deps.env', 'scripts/build_deps.sh', 'scripts/lib/buildenv.sh') }}
+
+      - name: Build libraries from source (deployment target from versions.env)
+        run: scripts/build_deps.sh
+
+      - name: Save library cache
+        if: steps.depscache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .deps/${{ matrix.arch }}
+            !.deps/${{ matrix.arch }}/helpers
+          key: ${{ steps.depscache.outputs.cache-primary-key }}
+
+      # ---- helper decoders
+      - name: Restore helper cache
+        id: helpercache
+        uses: actions/cache/restore@v4
+        with:
+          path: .deps/${{ matrix.arch }}/helpers
+          key: helpers-${{ matrix.arch }}-${{ env.CACHE_VERSION }}-${{ hashFiles('versions.env', 'scripts/deps.env', 'scripts/build_deps.sh', 'scripts/build_helpers.sh', 'scripts/lib/buildenv.sh') }}
+
+      - name: Restore ccache
+        id: ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.arch }}-${{ env.CACHE_VERSION }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.arch }}-${{ env.CACHE_VERSION }}-
+
+      - name: Build helpers (dsd-neo, multimon-ng, rtl_433)
+        run: scripts/build_helpers.sh
+
+      - name: Save helper cache
+        if: steps.helpercache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .deps/${{ matrix.arch }}/helpers
+          key: ${{ steps.helpercache.outputs.cache-primary-key }}
+
+      # ---- SDR++ + SDRstar module
+      - name: Build SDR++ and the SDRstar modules
+        run: scripts/build_sdrpp.sh
+
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.arch }}-${{ env.CACHE_VERSION }}-${{ github.sha }}
+
+      # ---- bundle + checks (any failing check fails the job)
+      - name: Assemble and sign SDRstar.app
+        id: bundle
+        run: |
+          mkdir -p dist/logs
+          scripts/bundle_mac.sh 2>&1 | tee dist/logs/bundle-${{ matrix.arch }}.log
+
+      - name: "Check 1+2+3+4 - dependency closure, architecture/minos, bundle shape, code signature"
+        run: scripts/verify_bundle.sh 2>&1 | tee dist/logs/verify-${{ matrix.arch }}.log
+
+      - name: "Check 5 - helpers run from a relocated copy; DSD-neo decodes the P25 fixture; multimon-ng decodes DTMF"
+        run: scripts/test_helpers.sh 2>&1 | tee dist/logs/helpers-${{ matrix.arch }}.log
+
+      - name: "Check 6 - core library tests incl. integration tests with the bundled dsd-neo"
+        run: scripts/test_core.sh 2>&1 | tee dist/logs/core-${{ matrix.arch }}.log
+
+      - name: "Check 7 - launch the bundled app (plugin dlopen, headless, GUI if a window server exists)"
+        if: always() && steps.bundle.outcome == 'success'
+        run: scripts/smoke_launch.sh "" 15 2>&1 | tee dist/logs/launch-summary-${{ matrix.arch }}.log
+
+      - name: Disk image
+        run: scripts/make_dmg.sh 2>&1 | tee dist/logs/dmg-${{ matrix.arch }}.log
+
+      - name: Job summary
+        if: always()
+        env:
+          DEPS_CACHE_HIT: ${{ steps.depscache.outputs.cache-hit }}
+          HELPERS_CACHE_HIT: ${{ steps.helpercache.outputs.cache-hit }}
+          CCACHE_RESTORED_KEY: ${{ steps.ccache.outputs.cache-matched-key }}
+        run: scripts/ci_summary.sh >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload disk image
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ matrix.arch }}
+          path: |
+            dist/${{ matrix.dmg }}.dmg
+            dist/${{ matrix.dmg }}.dmg.sha256
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.arch }}
+          path: |
+            dist/logs
+            dist/launch-*.log
+            build/${{ matrix.arch }}/core/ctest.log
+            build/${{ matrix.arch }}/BUILD-INFO.txt
+          if-no-files-found: ignore
+
+  # -------------------------------------------------------------------------------------------------------------
+  release:
+    needs: [plan, mac]
+    if: needs.mac.result == 'success' && needs.plan.outputs.full == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dmg-*
+          merge-multiple: true
+          path: dist
+
+      - name: Verify the downloads
+        working-directory: dist
+        run: |
+          ls -l
+          sha256sum -c ./*.sha256
+
+      - name: Publish the "nightly" pre-release
+        run: |
+          {
+            echo "Automatic build of commit \`${GITHUB_SHA}\` (run ${GITHUB_RUN_NUMBER}, $(date -u +%Y-%m-%d))."
+            echo
+            echo "| Mac | Download |"
+            echo "| --- | --- |"
+            echo "| Apple Silicon (M1/M2/M3/M4) | \`SDRstar-AppleSilicon.dmg\` |"
+            echo "| Intel | \`SDRstar-Intel.dmg\` |"
+            echo
+            echo "Open the .dmg, drag SDRstar to Applications, and read \`READ ME FIRST.txt\` inside it: the app is not"
+            echo "signed with a paid Apple Developer ID, so macOS asks you to confirm the first launch."
+            echo
+            echo "SHA-256:"
+            echo '```'
+            cat dist/*.sha256
+            echo '```'
+            echo
+            echo "Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } > notes.md
+          if gh release view nightly --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # Replace the release so the nightly tag moves to this commit (no force-push involved).
+            gh release delete nightly --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+          fi
+          gh release create nightly --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "SDRstar nightly" --notes-file notes.md dist/*.dmg dist/*.sha256
+          gh release upload nightly --repo "$GITHUB_REPOSITORY" --clobber dist/*.dmg dist/*.sha256
+          gh release view nightly --repo "$GITHUB_REPOSITORY" --json url,assets --jq '.url, (.assets[] | "\(.name)  \(.size) bytes")'
