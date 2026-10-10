@@ -123,4 +123,15 @@ TEST(memory_outlives_a_vanished_signal_for_a_while_then_expires) {
     CHECK(l.find(F) == nullptr);
 }
 
+TEST(a_refresh_at_a_slightly_different_frequency_keeps_one_entry_that_can_be_forgotten) {
+    IdentityLedger l;
+    l.offer(F, 12500, claim("dmr", "DMR channel"), 10, false);
+    // the next probe measured the centre 2.5 kHz away (another 6.25 kHz bucket's worth): still the same channel
+    l.offer(F + 4000, 12500, claim("dmr", "DMR channel"), 700, false);
+    CHECK_EQ(l.size(), (size_t)1);
+    CHECK_NEAR(l.find(F)->freqHz, F + 4000, 1.0);
+    l.forget(F);
+    CHECK_EQ(l.size(), (size_t)0);
+}
+
 TEST_MAIN("identity_ledger")

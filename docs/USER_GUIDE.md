@@ -7,8 +7,10 @@ dragging the cursor, the left-hand panels, the demodulators, the recorder. This 
 
 1. Plug in the RTL-SDR, open SDRstar, press **Play** (top left). Pick a frequency (type it in the big number at the top,
    or drag the waterfall).
-2. **Signals get labels** on the waterfall: a small tag above each signal it finds. The tags only state facts that were
-   measured ("12.5 kHz, steady", "FM broadcast", "wide FM-size signal"), never guesses.
+2. **Identified signals get labels** on the waterfall: a small tag above each signal whose protocol was really decoded
+   ("P25 Phase 1 control channel", "DMR channel" ...). A signal keeps its label until it really changes. If you would
+   rather see every signal found, untick **Only label signals that have been identified** in the SDRstar panel: the
+   tags then also state what was measured ("12.5 kHz, steady", "FM broadcast", "wide FM-size signal"), never guesses.
 3. **Rest your cursor on a signal** (the box you drag around is your cursor; SDR++ calls it a VFO). After a moment a
    **card** appears next to it: what the signal is, what that band is normally used for, and buttons for the sensible
    next steps.
@@ -30,7 +32,8 @@ Buttons you may see:
 * **Listen as FM / Listen (wide FM) / Listen (AM)**: switches your normal SDR++ radio to that demodulator.
 * **Identify digital signal / Try again / Re-check**: runs the decoder test now, even if the automatic test already
   ran or gave up. It checks the digital modes that could live on that band (about 5 seconds).
-* **Decode and listen**: for a conventional (non-trunked) digital voice channel. Plays the decoded voice.
+* **Decode and listen**: for a conventional (non-trunked) digital voice channel. Plays the decoded voice. The cursor snaps
+  onto the channel and stays there while you listen; moving it off the channel stops the decoding.
 * **Follow trunked system**: see the next section.
 * **Center on signal**: your cursor is a little off the signal's true centre; this snaps it on.
 * **Read pager messages / Decode APRS / Read weather alerts / Read sensors / Read aircraft (ADS-B)**: the text decoders
@@ -39,6 +42,15 @@ Buttons you may see:
 A digital protocol is only **claimed** after enough error-checked data has really been decoded. If nothing is
 claimed the card says "No digital protocol recognised" and tells you what that could mean (analog, encrypted, too weak,
 or a mode that is not supported).
+
+**Between transmissions.** Pagers, sensors and APRS only transmit now and then, so there may be nothing on the air where
+your cursor rests. In a band where those live, the card then says *"Nothing on the air here right now"* and still offers
+the decoder button (for example **Read pager messages**): start it and leave the cursor there to catch the next one.
+
+**A signal keeps its identity.** Once a signal has been identified it keeps that name. A later test that disagrees does
+not change it on its own: the different answer has to be seen twice, a few seconds apart, before the label changes. If
+you press **Re-check** yourself you get the new answer at once. An identified signal is quietly re-checked every ten
+minutes, so a channel that really changes protocol is noticed.
 
 ## Following a trunked system
 
@@ -59,7 +71,13 @@ channel, and when a call is announced, go and listen to its voice channel.
    * *Cannot follow: ...* with the reason, when it can't (examples in the table below).
    Counters show how often the window moved, calls followed, hops and calls skipped. **Activity log** in the SDRstar
    side panel keeps the full history.
-3. **Stop following** ends it.
+3. **Stop following** ends it, or just move the cursor off the channel (see the next paragraph).
+
+**The cursor goes where the radio listens.** When following starts the cursor snaps onto the control channel, and when a
+call is announced it moves onto that call's voice channel (and back when the call ends), so the cursor is always on what
+you are hearing. **Clicking somewhere else on the waterfall means "stop listening to that"**: following stops. If you do
+that during a call, SDRstar first goes back to the control channel you originally clicked (the receiver window as well, if
+it had hopped away, and the cursor), and then stops.
 
 ### Why "the window" moves, and what "hop" means
 
@@ -78,10 +96,12 @@ An RTL-SDR can only see about **2.4 MHz at once** (1.92 MHz of that is usable). 
 Because it is a single tuner, **two simultaneous calls on far-apart frequencies cannot both be heard**, and
 **encrypted calls are reported but not decoded**.
 
-### DMR, NXDN and EDACS need a channel list
+### DMR, NXDN and EDACS: a channel list lets it follow calls to other channels
 
 A P25 control channel announces the frequency plan itself, so P25 needs nothing. DMR (Connect Plus, Capacity Plus,
-Tier III), NXDN and EDACS do not: you tell SDRstar which channel number is which frequency. Open the **SDRstar** panel
+Tier III), NXDN and EDACS do not announce where their voice channels are. Without a list SDRstar still plays the calls
+that happen on the channel you are following; to follow calls onto the system's *other* channels you tell SDRstar which
+channel number is which frequency. Open the **SDRstar** panel
 (left side), type the path of a CSV file into **Channel list CSV**, and (optionally) a talkgroup list into
 **Talkgroup list CSV**. The files use DSD-neo's format:
 
@@ -113,14 +133,19 @@ On bands where it makes sense, the card offers a text decoder; you can also pick
 | ISM sensors | 433 / 868 / 915 MHz devices: weather stations, tyre-pressure sensors, door sensors, utility meters ... (200+ types, via rtl_433) | Many sensors transmit only every 30-60 seconds, and send each message several times; repeats are shown once with a count, e.g. `(x3)`. |
 
 Received messages appear on the card and, in full, in the **Messages** list in the SDRstar panel. The decoder listens
-exactly where your cursor is. A text decoder runs *instead of* an identification / follow job. If you move the receiver window away from the
-signal a decoder is listening to, the decoder stops and says so.
+exactly where your cursor is, and **follows the cursor**: while a text decoder is on, moving the cursor to another
+frequency moves the decoder there, and the messages already collected stay. The card says whether there is a signal under
+the cursor ("Signal at the cursor: 17 dB above the noise") and offers **Center on signal** when the cursor is a little off
+it (a pager channel several kHz off hears nothing). **Stop** ends it and leaves the cursor where it is. A text decoder
+runs *instead of* an identification / follow job. If you move the receiver window away from the signal a decoder is
+listening to, the decoder stops and says so.
 
 ## The SDRstar panel (left side)
 
 | Control | Does |
 | --- | --- |
 | **Label signals on the waterfall** | Turns the little tags on and off. |
+| **Only label signals that have been identified** | On (default): only signals whose protocol was decoded get a tag, and a tag stays the same until the signal really changes. Off: every signal found is tagged with what can be measured of it. |
 | **Quietly identify steady digital signals** | The automatic background identification. Off = only when you click. Signals that are tested and turn out not to be digital are re-tested only rarely (the wait grows from 1.5 minutes to an hour). |
 | **Sensitivity** | How far (in dB) above the noise a signal must rise to be labelled. Lower finds weaker signals but gives more false labels. |
 | **Identify signal under the cursor** | Same as the card's Identify button. |
@@ -133,8 +158,11 @@ signal a decoder is listening to, the decoder stops and says so.
 
 Analog listening uses SDR++'s normal path (volume, device and mute in the top bar and the **Sinks** panel). Decoded
 digital voice (a followed trunked call, or **Decode and listen**) plays through a second audio stream named
-**SDRstar Voice**, on the same output device. While you follow a trunked system or decode a digital voice channel, your normal
-radio is muted so you do not hear digital noise on top of the voice; stopping the job unmutes it.
+**SDRstar Voice**, on the same output device. That second stream is only opened while you follow a trunked system or
+decode a digital voice channel (and closed when you stop), and while it is open it is fed continuously, so it never
+holds up your normal radio audio. Decoded voice is delayed by about a fifth of a second: it is queued briefly so a call
+plays smoothly instead of stuttering. While following or decoding, your normal radio is muted so you do not hear digital
+noise on top of the voice; stopping the job unmutes it.
 
 ## Settings you may want
 

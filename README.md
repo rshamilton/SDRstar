@@ -14,15 +14,17 @@ decodes it, and follows trunked radio systems from the control channel to the ta
 
 * **The SDR++ interface.** Waterfall, drag the cursor (VFO) around, zoom, bookmarks, recorder, WFM / NFM / AM / SSB /
   CW demodulators, audio device selection: all of SDR++ 1.3.0 is still there.
-* **Signal labels on the waterfall.** Every signal found gets a short fact-only label ("12.5 kHz, steady",
-  "FM broadcast", "wide FM-size signal") plus what that band is normally used for.
+* **Signal labels on the waterfall.** Signals whose digital protocol was really decoded are labelled ("P25 Phase 1 control
+  channel", "DMR channel" ...) and keep that label until they really change; one setting labels every signal found instead
+  with a short fact-only description ("12.5 kHz, steady", "FM broadcast"), plus what that band is normally used for.
 * **A card next to your cursor.** Rest the cursor on a signal and a small card tells you what it is and offers the
   obvious next step: *Listen as FM*, *Identify digital signal*, *Read pager messages*, *Follow trunked system* ...
 * **Automatic digital identification.** Steady narrow signals are quietly tested against the digital modes that
   could live there (P25 Phase 1 and 2, DMR, NXDN, dPMR, D-STAR, YSF, M17, ProVoice, EDACS). A protocol is only
   *claimed* after enough error-checked data has really been decoded, so you do not get confident wrong guesses.
 * **Trunk following.** Drag onto a control channel: the card says it is a trunked system (with system ID, NAC,
-  site ...) and offers **Follow trunked system**. SDRstar then moves to each call's voice channel and plays the voice.
+  site ...) and offers **Follow trunked system**. SDRstar then moves to each call's voice channel and plays the voice, and
+  your cursor goes with it so it is always on what you hear; clicking elsewhere stops.
 * **It uses the whole tuner range and says what it is doing.** The listening window (about 2 MHz wide) is moved
   automatically to hold what you need, anywhere from 0.5 MHz to 1.766 GHz. When something cannot be done, it says
   why in plain English ("The voice channel is at 853.1375 MHz, which this receiver cannot reach" / "5.2 MHz from the

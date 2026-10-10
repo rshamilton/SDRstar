@@ -37,6 +37,7 @@ private:
 
     // geometry of the card from the last frame (for hit testing)
     bool cardShown_ = false;
+    bool pressOnCard_ = false;   // a mouse press began on the card: the whole press belongs to the card, not the waterfall
     ImVec2 cardMin_, cardMax_;
     std::vector<Hit> hits_;
     int hoverRow_ = -1;

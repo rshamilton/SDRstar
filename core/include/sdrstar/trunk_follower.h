@@ -99,6 +99,8 @@ public:
     // Exposed for tests: process one retune request exactly as the rigctl bridge would.
     bool handleTuneRequest(double hz);
     // Put the window (and the follower) back on the control channel: the answer to a user who moved the receiver away.
+    // Never waits: if a retune is in progress right now it returns false at once (the caller is typically the GUI thread,
+    // which may be holding a lock the retune needs).  Try again a moment later.
     bool returnToControl();
 
 private:
@@ -107,6 +109,7 @@ private:
     void event(FollowEvent::Level lvl, const std::string& text);
     void refreshStatusText();
     void applyPlan(const Plan& plan, double targetHz, bool toControl);
+    bool handleTuneRequestLocked(double hz);   // caller holds tuneMtx_
 
     RadioHost* host_;
     Config cfg_;

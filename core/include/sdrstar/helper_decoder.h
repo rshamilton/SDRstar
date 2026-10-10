@@ -117,7 +117,7 @@ private:
     std::string partial_;
     std::string lastErr_;
     std::atomic<long long> count_{0};
-    double t0_ = 0;
+    std::atomic<double> t0_{0.0};   // start of the message clock (restored by retarget() while reader threads run)
 };
 
 }  // namespace sdrstar

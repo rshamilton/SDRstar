@@ -10,10 +10,12 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <sdrstar/channel_decoder.h>
 #include <sdrstar/helper_decoder.h>
+#include <sdrstar/identity_ledger.h>
 #include <sdrstar/probe_manager.h>
 #include <sdrstar/signal_detector.h>
 #include <sdrstar/trunk_follower.h>
@@ -67,6 +69,7 @@ struct CardModel {
 
 struct EngineSettings {
     bool showLabels = true;
+    bool labelOnlyIdentified = true;   // label only signals whose protocol has been identified, not every signal found
     bool autoIdentify = true;     // quietly identify steady narrowband signals as they appear
     bool allowHop = true;         // follow calls that need the receiver to leave the control channel
     double sensitivityDb = 10.0;  // detection margin above the noise floor
@@ -90,6 +93,7 @@ public:
 
     // data for the UI (GUI thread)
     std::vector<sdrstar::DetectedSignal> signals() const;
+    std::vector<sdrstar::DetectedSignal> labelSignals() const;   // signals() narrowed by the "only label identified signals" setting
     CardModel card();                           // card for the cursor / active job
     JobKind jobKind() const { return job_; }
     sdrstar::FollowStatus followStatus() const { return follower_.status(); }
@@ -120,13 +124,6 @@ public:
     double cursorBw() const { return cursorBw_; }
 
 private:
-    struct StoredResult {
-        sdrstar::ProbeVerdict verdict;
-        double whenSec = 0;
-        double bwHz = 0;
-        double freqHz = 0;   // the exact frequency this result was established for (NOT whatever the cursor / another job is on now)
-    };
-
     void onSpectrum(const float* db, int bins, double center, double span);
     void updateCursor(double now);
     void pollProbe(double now);
@@ -134,20 +131,35 @@ private:
     void startProbe(double freqHz, double bwHz, bool automatic);
     CardModel buildCursorCard();
     std::vector<CardButton> helperButtonsFor(double freqHz) const;
-    void startFollow(const StoredResult& r);
-    void startDecode(const StoredResult& r);
+    void startFollow(const sdrstar::IdentityEntry& r);
+    void startDecode(const sdrstar::IdentityEntry& r);
     void stopJob();
     void setRadioMuted(bool muted);
     void setRadioMode(int mode, float bandwidth);
     std::string findHelper(const std::string& name) const;
     static long long keyFor(double freqHz) { return (long long)std::llround(freqHz / 6250.0); }
-    const StoredResult* resultFor(double freqHz) const;
     double snapFrequency(double freqHz, double bwHz) const;
     bool nearestSignal(double freqHz, double bwHz, sdrstar::DetectedSignal& out) const;
     double nowSec() const;
     void loadSettings();
     void saveSettings();
     void addNote(const std::string& s);
+
+    // --- the cursor and what we are listening to ---
+    // While a voice job (decode / follow) runs, the cursor sits on the channel being listened to; moving it off that
+    // channel stops the job.  A text decoder follows the cursor instead.
+    bool moveCursorTo(double centerHz);
+    void pinCursor(double hz, double bwHz);
+    void trackCursorForJob(double now);
+    bool cursorLeftPin() const;
+    void clickOffFollowing(const sdrstar::FollowStatus& st);
+    void retargetHelper(double freqHz);
+    void adoptIdentities(double now, const std::vector<sdrstar::DetectedSignal>& sigs);
+    bool tuneCursorTo(double centerHz);     // put the selected VFO's centre on this frequency (no job bookkeeping)
+    // Stopping the trunk follower joins threads that can be waiting for a lock the GUI thread holds while it draws the
+    // waterfall, so it is done on a helper thread; a new job cannot start until it has finished.
+    void stopFollowingAsync();
+    void joinStopper();
 
     SdrppRadioHost host_;
     SpectrumTap tap_;
@@ -172,7 +184,7 @@ private:
     double jobBw_ = 12500;   // bandwidth of the hidden channel the current job listens on
     std::string jobTitle_;
     sdrstar::ProbeProgress lastProbe_;
-    std::map<long long, StoredResult> results_;
+    sdrstar::IdentityLedger ledger_;             // what each frequency was identified as (steady unless it really changes)
     std::map<long long, double> noClaimUntil_;   // auto-probe cooldown per frequency bucket
     std::map<long long, int> noClaimCount_;      // how many times in a row a bucket was probed without a claim (back-off)
     std::map<long long, double> bucketSeenSec_;  // last time a tracked signal was on this bucket (to forget stale cooldowns)
@@ -187,6 +199,16 @@ private:
     bool dismissed_ = false;
     double dismissedFreq_ = 0;
     std::string cursorVfoName_;
+    // cursor pinned to the channel of a running voice job (or the user's last position for a text decoder)
+    std::string pinVfo_;
+    double pinHz_ = 0;
+    double pinTolHz_ = 6250.0;
+    double lastCenterHz_ = 0;        // receiver window centre last tick: a window move drags the cursor along
+    double settleUntil_ = 0;         // while the window is settling after a move, do not read cursor jumps as clicks
+    double helperBlockedHz_ = 0;     // a cursor position the running text decoder could not move to (reported once)
+    double lastAdoptSec_ = 0;
+    std::thread stopper_;
+    std::atomic<bool> stopperBusy_{false};
     bool radioMuted_ = false;
     double startSec_ = 0;
 };

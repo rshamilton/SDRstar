@@ -30,7 +30,10 @@ bool fileExecutable(const std::string& p) { return !p.empty() && ::access(p.c_st
 
 SmartEngine::SmartEngine() : follower_(&host_) {}
 
-SmartEngine::~SmartEngine() { stop(); }
+SmartEngine::~SmartEngine() {
+    stop();
+    joinStopper();
+}
 
 double SmartEngine::nowSec() const {
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -59,6 +62,7 @@ std::string SmartEngine::findHelper(const std::string& name) const {
 void SmartEngine::loadSettings() {
     json def = json::object();
     def["showLabels"] = true;
+    def["labelOnlyIdentified"] = true;
     def["autoIdentify"] = true;
     def["allowHop"] = true;
     def["sensitivityDb"] = 10.0;
@@ -69,6 +73,7 @@ void SmartEngine::loadSettings() {
     gCfg.acquire();
     try {
         settings_.showLabels = gCfg.conf.value("showLabels", true);
+        settings_.labelOnlyIdentified = gCfg.conf.value("labelOnlyIdentified", true);
         settings_.autoIdentify = gCfg.conf.value("autoIdentify", true);
         settings_.allowHop = gCfg.conf.value("allowHop", true);
         settings_.sensitivityDb = gCfg.conf.value("sensitivityDb", 10.0);
@@ -84,6 +89,7 @@ void SmartEngine::loadSettings() {
 void SmartEngine::saveSettings() {
     gCfg.acquire();
     gCfg.conf["showLabels"] = settings_.showLabels;
+    gCfg.conf["labelOnlyIdentified"] = settings_.labelOnlyIdentified;
     gCfg.conf["autoIdentify"] = settings_.autoIdentify;
     gCfg.conf["allowHop"] = settings_.allowHop;
     gCfg.conf["sensitivityDb"] = settings_.sensitivityDb;
@@ -136,6 +142,7 @@ void SmartEngine::stop() {
     if (!started_) { return; }
     started_ = false;
     stopJob();
+    joinStopper();
     tap_.stop();
     host_.closeAll();
     voice_.shutdown();
@@ -154,6 +161,13 @@ void SmartEngine::onSpectrum(const float* db, int bins, double center, double sp
 std::vector<DetectedSignal> SmartEngine::signals() const {
     std::lock_guard<std::mutex> lk(detMtx_);
     return det_.signals();
+}
+
+std::vector<DetectedSignal> SmartEngine::labelSignals() const {
+    std::vector<DetectedSignal> all = signals();
+    if (!settings_.labelOnlyIdentified) { return all; }
+    all.erase(std::remove_if(all.begin(), all.end(), [](const DetectedSignal& s) { return s.identified.empty(); }), all.end());
+    return all;
 }
 
 double SmartEngine::noiseFloorDb() const {
@@ -224,24 +238,20 @@ double SmartEngine::snapFrequency(double freqHz, double bwHz) const {
     return freqHz;
 }
 
-const SmartEngine::StoredResult* SmartEngine::resultFor(double freqHz) const {
-    auto it = results_.find(keyFor(freqHz));
-    if (it != results_.end()) { return &it->second; }
-    for (long long k = keyFor(freqHz) - 1; k <= keyFor(freqHz) + 1; ++k) {
-        auto j = results_.find(k);
-        if (j != results_.end() && std::fabs((double)k * 6250.0 - freqHz) < 7000.0) { return &j->second; }
-    }
-    return nullptr;
-}
-
 // ------------------------------------------------------------------------------------------------------------
 // periodic work
 // ------------------------------------------------------------------------------------------------------------
 void SmartEngine::tick() {
     if (!started_) { return; }
     const double now = nowSec();
+    if (stopper_.joinable() && !stopperBusy_.load()) { stopper_.join(); }
     host_.reconcile();   // the user may have moved the receiver window: keep hidden channels on their frequency
     updateCursor(now);
+    if (now - lastAdoptSec_ >= 1.0) {
+        lastAdoptSec_ = now;
+        adoptIdentities(now, signals());
+    }
+    trackCursorForJob(now);
     pollProbe(now);
     autoProbe(now);
     // A job listening on one fixed frequency is useless once the user moves the window away from it: say so and stop.
@@ -277,17 +287,23 @@ void SmartEngine::pollProbe(double now) {
     ProbeProgress p = probe_.poll();
     lastProbe_ = p;
     if (!p.finished) { return; }
-    StoredResult r;
-    r.verdict = p.best;
-    r.whenSec = now;
-    r.bwHz = 12500;
-    r.freqHz = jobFreq_;
-    results_[keyFor(jobFreq_)] = r;
-    if (p.best.claimed) {
+    // The ledger decides what the signal is called: a different answer to the one already known has to be seen twice (or be
+    // asked for by the user) before the label changes, so it does not flip between protocols.
+    const bool manual = !jobAutomatic_;
+    ledger_.offer(jobFreq_, jobBw_, p.best, now, manual);
+    const IdentityEntry* e = ledger_.find(jobFreq_);
+    {
         std::lock_guard<std::mutex> lk(detMtx_);
-        det_.setIdentified(jobFreq_, p.best.title, p.best.detail);
+        if (e && e->verdict.claimed) {
+            det_.setIdentified(e->freqHz, e->verdict.title, e->verdict.detail);
+        } else if (manual) {
+            det_.setIdentified(jobFreq_, "", "");   // the user re-checked and nothing was recognised: drop the old label
+        }
+    }
+    if (p.best.claimed) {
         noClaimCount_.erase(keyFor(jobFreq_));
-    } else {
+        noClaimUntil_.erase(keyFor(jobFreq_));
+    } else if (!(e && e->verdict.claimed)) {
         // Back off: 1.5 min, 4.5 min, 13 min, then once an hour.  An analog channel that is always on would otherwise
         // be re-tested (several decoder processes, a few seconds of CPU) forever.  The user can always ask again.
         const int n = ++noClaimCount_[keyFor(jobFreq_)];
@@ -295,6 +311,21 @@ void SmartEngine::pollProbe(double now) {
         noClaimUntil_[keyFor(jobFreq_)] = now + wait;
     }
     job_ = JobKind::None;
+}
+
+// A channel that was identified keeps its identity: when the waterfall starts tracking it afresh (a voice channel keys up
+// and down) the remembered identity is put back instead of probing again, and the ledger is told which channels are still there.
+void SmartEngine::adoptIdentities(double now, const std::vector<DetectedSignal>& sigs) {
+    for (const auto& s : sigs) {
+        const IdentityEntry* e = ledger_.find(s.freqHz);
+        if (!e) { continue; }
+        if (s.present) { ledger_.touch(s.freqHz, now); }
+        if (s.identified.empty() && e->verdict.claimed) {
+            std::lock_guard<std::mutex> lk(detMtx_);
+            det_.setIdentified(s.freqHz, e->verdict.title, e->verdict.detail);
+        }
+    }
+    ledger_.expire(now);
 }
 
 void SmartEngine::autoProbe(double now) {
@@ -316,11 +347,16 @@ void SmartEngine::autoProbe(double now) {
     }
     const DetectedSignal* best = nullptr;
     for (const auto& s : sigs) {
-        if (!s.present || s.hits < 8 || s.snrDb < 14.0 || !s.identified.empty()) { continue; }
+        if (!s.present || s.hits < 8 || s.snrDb < 14.0) { continue; }
         if (s.kind != SignalKind::Channel12k && s.kind != SignalKind::Narrow) { continue; }
         if (bandSuggests(s.freqHz, "wfm")) { continue; }
-        auto cd = noClaimUntil_.find(keyFor(s.freqHz));
-        if (cd != noClaimUntil_.end() && cd->second > now) { continue; }
+        if (!s.identified.empty()) {
+            // Already identified: only look again now and then (or to settle a disagreement), so a real change is noticed.
+            if (!ledger_.verificationDue(s.freqHz, now)) { continue; }
+        } else {
+            auto cd = noClaimUntil_.find(keyFor(s.freqHz));
+            if (cd != noClaimUntil_.end() && cd->second > now) { continue; }
+        }
         // Skip splatter/images: a much stronger signal within 40 kHz makes this one almost certainly an artifact of it.
         bool dominated = false;
         for (const auto& o : sigs) {
@@ -341,6 +377,7 @@ void SmartEngine::startProbe(double freqHz, double bwHz, bool automatic) {
         return;
     }
     if (automatic && job_ != JobKind::None) { return; }
+    if (stopperBusy_.load()) { return; }
     stopJob();
     ProbeManager::Config c;
     c.dsdExe = dsdPath_;
@@ -365,7 +402,6 @@ void SmartEngine::startProbe(double freqHz, double bwHz, bool automatic) {
 void SmartEngine::identifyAtCursor() {
     if (!cursorValid_) { return; }
     double f = snapFrequency(cursorFreq_, cursorBw_);
-    results_.erase(keyFor(f));
     startProbe(f, std::min(cursorBw_, 25000.0), false);
 }
 
@@ -389,21 +425,148 @@ void SmartEngine::setRadioMode(int mode, float bandwidth) {
     core::modComManager.callInterface(name, RADIO_IFACE_CMD_SET_BANDWIDTH, &bandwidth, NULL);
 }
 
+void SmartEngine::joinStopper() {
+    if (stopper_.joinable()) { stopper_.join(); }
+}
+
+void SmartEngine::stopFollowingAsync() {
+    joinStopper();   // a previous stop has long finished; this only matters if two stops come back to back
+    stopperBusy_ = true;
+    stopper_ = std::thread([this] {
+        follower_.stop();
+        stopperBusy_ = false;
+    });
+}
+
 void SmartEngine::stopJob() {
     switch (job_) {
     case JobKind::Probing: probe_.cancel(); break;
-    case JobKind::Following: follower_.stop(); break;
+    case JobKind::Following: stopFollowingAsync(); break;
     case JobKind::Decoding: decoder_.stop(); break;
     case JobKind::Helper: helper_.stop(); break;
     default: break;
     }
     job_ = JobKind::None;
+    pinVfo_.clear();
+    helperBlockedHz_ = 0;
     if (radioMuted_) { setRadioMuted(false); }
-    voice_.clear();
+    voice_.end();   // closes the voice output device (nothing happens if it was never opened)
 }
 
-void SmartEngine::startFollow(const StoredResult& r) {
+// ------------------------------------------------------------------------------------------------------------
+// the cursor while a job runs
+// ------------------------------------------------------------------------------------------------------------
+// Put the selected VFO's CENTRE on a frequency.  tuner::tune() takes the frequency of the VFO's reference point (the
+// centre for FM / AM, an edge for USB / LSB / RAW), so the difference is added.  It also scrolls or retunes if the VFO
+// would leave the view.
+bool SmartEngine::tuneCursorTo(double centerHz) {
+    std::string name = (!pinVfo_.empty() && gui::waterfall.vfos.count(pinVfo_)) ? pinVfo_ : cursorVfoName_;
+    auto it = gui::waterfall.vfos.find(name);
+    if (name.empty() || it == gui::waterfall.vfos.end()) { return false; }
+    const ImGui::WaterfallVFO* vfo = it->second;
+    tuner::tune(tuner::TUNER_MODE_NORMAL, name, centerHz + (vfo->generalOffset - vfo->centerOffset));
+    updateCursor(nowSec());
+    return true;
+}
+
+// The cursor goes to the channel being listened to and the job is bound to it from now on.
+bool SmartEngine::moveCursorTo(double centerHz) {
+    const bool ok = tuneCursorTo(centerHz);
+    if (ok) {
+        pinHz_ = centerHz;
+        pinVfo_ = cursorVfoName_;
+    }
+    return ok;
+}
+
+void SmartEngine::pinCursor(double hz, double bwHz) {
+    pinVfo_ = cursorVfoName_;
+    pinHz_ = hz;
+    pinTolHz_ = std::clamp(0.5 * bwHz, 2500.0, 6250.0);   // moving the cursor off the channel's own width counts as clicking away
+    lastCenterHz_ = host_.centerHz();
+    settleUntil_ = 0;
+}
+
+bool SmartEngine::cursorLeftPin() const {
+    if (!cursorValid_ || pinVfo_.empty()) { return false; }
+    return cursorVfoName_ != pinVfo_ || std::fabs(cursorFreq_ - pinHz_) > pinTolHz_;
+}
+
+// "Click off" while following: stop.  If that happens during a call (the receiver is on a voice channel, perhaps in another
+// part of the spectrum), first go back to the control channel that was originally clicked, cursor included, and then stop.
+void SmartEngine::clickOffFollowing(const FollowStatus& st) {
+    const bool onVoice = st.currentHz > 0 && std::fabs(st.currentHz - st.controlHz) > 700.0;
+    const double control = st.controlHz;
+    if (onVoice) {
+        follower_.returnToControl();   // never waits; if a retune is in progress right now we just stop
+        moveCursorTo(control);
+        addNote("Stopped following: went back to the control channel " + formatFrequency(control) + ".");
+    } else {
+        addNote("Stopped following: the cursor was moved off the control channel.");
+    }
+    stopJob();
+}
+
+// A text decoder listens wherever the cursor is: when the cursor moves the decoder moves with it.
+void SmartEngine::retargetHelper(double freqHz) {
+    if (std::fabs(freqHz - helperBlockedHz_) < 400.0) { return; }   // already reported: do not try (and complain) every frame
+    const sdrstar::HelperSpec& sp = helper_.spec();
+    if (!sdrstar::channelFits(host_.caps(), host_.centerHz(), sdrstar::WindowChannel{freqHz, sp.channelBwHz, ""})) {
+        helperBlockedHz_ = freqHz;
+        addNote("The cursor is too close to the edge of the receiver window for the " + jobTitle_ + " decoder; it keeps listening at " +
+                formatFrequency(jobFreq_) + ".");
+        return;
+    }
+    std::string err;
+    if (!helper_.retarget(freqHz, err)) {
+        helperBlockedHz_ = freqHz;
+        addNote("Could not move the " + jobTitle_ + " decoder to " + formatFrequency(freqHz) + ": " + err);
+        return;
+    }
+    helperBlockedHz_ = 0;
+    jobFreq_ = freqHz;
+}
+
+void SmartEngine::trackCursorForJob(double now) {
+    const bool voiceJob = job_ == JobKind::Following || job_ == JobKind::Decoding;
+    const bool textJob = job_ == JobKind::Helper && helper_.spec().fixedFreqHz <= 0;
+    if (!voiceJob && !textJob) { return; }
+    if (!cursorValid_) { return; }
+    // A hardware retune can drag the cursor along with the window; that is not the user clicking.  Let it settle first.
+    const double center = host_.centerHz();
+    if (std::fabs(center - lastCenterHz_) > 1.0) {
+        lastCenterHz_ = center;
+        settleUntil_ = now + 0.8;
+    }
+    if (now < settleUntil_) { return; }
+
+    if (textJob) {
+        if (std::fabs(cursorFreq_ - jobFreq_) > 400.0 && now - cursorSince_ > 0.35) { retargetHelper(cursorFreq_); }
+        return;
+    }
+    if (job_ == JobKind::Decoding) {
+        if (cursorLeftPin()) {
+            addNote("Stopped decoding: the cursor was moved off " + formatFrequency(jobFreq_) + ".");
+            stopJob();
+        }
+        return;
+    }
+    // Following: the cursor sits where the receiver is listening.
+    const FollowStatus st = follower_.status();
+    if (st.state == FollowState::Paused || st.state == FollowState::Failed || st.state == FollowState::Stopped) { return; }
+    if (st.currentHz > 0 && std::fabs(st.currentHz - pinHz_) > 700.0) {
+        moveCursorTo(st.currentHz);   // the follower went to a voice channel (or back to the control channel): so does the cursor
+        return;
+    }
+    if (cursorLeftPin()) { clickOffFollowing(st); }
+}
+
+void SmartEngine::startFollow(const IdentityEntry& r) {
     if (dsdPath_.empty()) { return; }
+    if (stopperBusy_.load()) {
+        addNote("Still stopping the previous trunk follow; try again in a moment.");
+        return;
+    }
     const double freq = r.freqHz > 0 ? r.freqHz : snapFrequency(cursorFreq_, cursorBw_);
     stopJob();
     TrunkFollower::Config c;
@@ -429,19 +592,27 @@ void SmartEngine::startFollow(const StoredResult& r) {
     if (!settings_.channelMapPath.empty()) { c.extraArgs.insert(c.extraArgs.end(), {"-C", settings_.channelMapPath}); }
     if (!settings_.groupListPath.empty()) { c.extraArgs.insert(c.extraArgs.end(), {"-G", settings_.groupListPath}); }
     follower_.setAudioCallback([this](const int16_t* d, size_t n, int ch, int rate) { voice_.push(d, n, ch, rate); });
+    moveCursorTo(freq);   // the cursor sits exactly on the control channel (the detected centre of the signal)
     std::string err;
     if (!follower_.start(c, err)) {
         addNote("Could not start following: " + err);
+        pinVfo_.clear();
         return;
     }
     job_ = JobKind::Following;
     jobFreq_ = freq;
     jobTitle_ = r.verdict.title;
+    pinCursor(freq, c.channelBwHz);
     setRadioMuted(true);
+    voice_.begin();
 }
 
-void SmartEngine::startDecode(const StoredResult& r) {
+void SmartEngine::startDecode(const IdentityEntry& r) {
     if (dsdPath_.empty()) { return; }
+    if (stopperBusy_.load()) {
+        addNote("Still stopping the previous trunk follow; try again in a moment.");
+        return;
+    }
     const double freq = r.freqHz > 0 ? r.freqHz : snapFrequency(cursorFreq_, cursorBw_);
     stopJob();
     ChannelDecoder::Config c;
@@ -451,16 +622,20 @@ void SmartEngine::startDecode(const StoredResult& r) {
     c.freqHz = freq;
     c.bwHz = (c.presetId == "nxdn48" || c.presetId == "dpmr") ? 8000 : 12500;
     decoder_.setAudioCallback([this](const int16_t* d, size_t n, int ch, int rate) { voice_.push(d, n, ch, rate); });
+    moveCursorTo(freq);   // the cursor sits exactly on the channel being listened to
     std::string err;
     if (!decoder_.start(&host_, c, err)) {
         addNote("Could not start the decoder: " + err);
+        pinVfo_.clear();
         return;
     }
     job_ = JobKind::Decoding;
     jobFreq_ = freq;
     jobBw_ = c.bwHz;
     jobTitle_ = r.verdict.title;
+    pinCursor(freq, c.bwHz);
     setRadioMuted(true);
+    voice_.begin();
 }
 
 bool SmartEngine::helperAvailable(const std::string& id) const {
@@ -477,6 +652,10 @@ void SmartEngine::startHelper(const std::string& id, double freqHz) {
     const std::string& exe = sp->native ? kNoProgram : (sp->exeName == "rtl_433" ? rtl433Path_ : multimonPath_);
     if (!sp->native && exe.empty()) {
         addNote("The " + sp->exeName + " helper was not found, so " + sp->title + " cannot be decoded.");
+        return;
+    }
+    if (stopperBusy_.load()) {
+        addNote("Still stopping the previous trunk follow; try again in a moment.");
         return;
     }
     stopJob();
@@ -512,6 +691,9 @@ void SmartEngine::startHelper(const std::string& id, double freqHz) {
     jobFreq_ = freqHz;
     jobBw_ = sp->channelBwHz;
     jobTitle_ = sp->title;
+    helperBlockedHz_ = 0;
+    lastCenterHz_ = host_.centerHz();
+    settleUntil_ = 0;
 }
 
 void SmartEngine::doAction(CardAction a) {
@@ -525,15 +707,15 @@ void SmartEngine::doAction(CardAction a) {
     case ACT_HELPER_ADSB: startHelper("adsb", 1090e6); break;
     case ACT_IDENTIFY: identifyAtCursor(); break;
     case ACT_FOLLOW:
-        if (const StoredResult* r = resultFor(snapFrequency(cursorFreq_, cursorBw_))) {
-            StoredResult copy = *r;
-            startFollow(copy);
+        if (const IdentityEntry* r = ledger_.find(snapFrequency(cursorFreq_, cursorBw_))) {
+            IdentityEntry copy = *r;
+            if (copy.verdict.claimed) { startFollow(copy); }
         }
         break;
     case ACT_DECODE:
-        if (const StoredResult* r = resultFor(snapFrequency(cursorFreq_, cursorBw_))) {
-            StoredResult copy = *r;
-            startDecode(copy);
+        if (const IdentityEntry* r = ledger_.find(snapFrequency(cursorFreq_, cursorBw_))) {
+            IdentityEntry copy = *r;
+            if (copy.verdict.claimed) { startDecode(copy); }
         }
         break;
     case ACT_LISTEN_NFM:
@@ -550,9 +732,7 @@ void SmartEngine::doAction(CardAction a) {
         break;
     case ACT_CENTER: {
         DetectedSignal sig;
-        if (cursorValid_ && !cursorVfoName_.empty() && nearestSignal(cursorFreq_, cursorBw_, sig)) {
-            tuner::tune(tuner::TUNER_MODE_NORMAL, cursorVfoName_, sig.freqHz);
-        }
+        if (cursorValid_ && !cursorVfoName_.empty() && nearestSignal(cursorFreq_, cursorBw_, sig)) { tuneCursorTo(sig.freqHz); }
         break;
     }
     case ACT_RETURN:
@@ -606,13 +786,21 @@ CardModel SmartEngine::card() {
         m.lines.push_back(buf);
         if (st.state == FollowState::Paused) { m.buttons.push_back({ACT_RETURN, "Return to control channel", true, true}); }
         {
+            // DMR, NXDN and EDACS systems do not announce where their voice channels are, so SDRstar can only follow a call
+            // onto another channel if it is given a channel list.  Calls that happen on THIS channel are played either way, so
+            // this is a note about what a list adds, not a statement that nothing works without one.
             const std::string& pr = st.dsd.protocol;
             const bool needsList = pr.find("DMR") != std::string::npos || pr.find("NXDN") != std::string::npos || pr.find("EDACS") != std::string::npos ||
                                    pr.find("ProVoice") != std::string::npos;
             if (needsList && settings_.channelMapPath.empty()) {
-                m.lines.push_back("This kind of system does not announce its channel frequencies. Without a channel list (SDRstar panel, \"Channel list CSV\") SDRstar can hear the control channel but cannot know where calls are.");
+                if (!st.call.empty() && st.state == FollowState::OnControl) {
+                    m.lines.push_back("Hearing a call on this channel. To follow calls onto the system's other channels too, add a channel list (SDRstar panel, \"Channel list CSV\").");
+                } else {
+                    m.lines.push_back("Calls on this channel are played. To follow calls onto the system's other channels too, add a channel list (SDRstar panel, \"Channel list CSV\"): this kind of system does not announce them.");
+                }
             }
         }
+        m.lines.push_back("The cursor stays on the channel being heard. Move it off to stop.");
         m.buttons.push_back({ACT_TOGGLE_HOP, settings_.allowHop ? "Hop to out-of-range calls: ON" : "Hop to out-of-range calls: OFF", false, true});
         m.buttons.push_back({ACT_STOP, "Stop following", true, true});
         return m;
@@ -630,6 +818,7 @@ CardModel SmartEngine::card() {
         }
         m.subtitle = sub;
         if (d.identity.colorCode >= 0) { m.lines.push_back("Color Code " + std::to_string(d.identity.colorCode)); }
+        m.lines.push_back("Move the cursor off this channel to stop.");
         m.buttons.push_back({ACT_STOP, "Stop decoding", true, true});
         return m;
     }
@@ -640,16 +829,30 @@ CardModel SmartEngine::card() {
         m.tone = CardTone::Good;
         m.title = jobTitle_;
         m.subtitle = mhz(jobFreq_) + "   \xC2\xB7   " + std::to_string(helper_.messageCount()) + " " + helper_.spec().countNoun;
-        auto ls = helper_.lines(5);
+        auto ls = helper_.lines(2);   // the card stays small (the Stop button must stay on screen); the panel lists them all
         if (ls.empty()) {
             const sdrstar::HelperSpec* sp = sdrstar::findHelperSpec(helper_.spec().id);
             m.lines.push_back(sp ? sp->idleHint : std::string("Waiting..."));
         }
         for (const auto& l : ls) {
             std::string t = l.text;
-            if (t.size() > 130) { t = t.substr(0, 127) + "..."; }
+            if (t.size() > 54) { t = t.substr(0, 51) + "..."; }
             if (l.repeat > 1) { t += "  (x" + std::to_string(l.repeat) + ")"; }
             m.lines.push_back(t);
+        }
+        if (helper_.spec().fixedFreqHz <= 0) {
+            // The decoder follows the cursor.  Say whether there is a signal under it: these signals come and go, and a
+            // cursor that is a few kHz beside a pager channel hears nothing.
+            DetectedSignal sig;
+            if (nearestSignal(jobFreq_, 12500.0, sig)) {
+                char b[128];
+                std::snprintf(b, sizeof b, "Signal at the cursor: %d dB above the noise.", (int)std::lround(sig.snrDb));
+                m.lines.push_back(b);
+                if (std::fabs(sig.freqHz - jobFreq_) > 1500.0 && sig.bwHz < 16000.0) { m.buttons.push_back({ACT_CENTER, "Center on signal", false, true}); }
+            } else {
+                m.lines.push_back("No signal above the noise at the cursor right now.");
+            }
+            m.lines.push_back("The decoder follows the cursor: move it to listen on another frequency.");
         }
         if (helper_.droppedBytes() > 0) { m.warning = "The decoder could not keep up; some signal was skipped."; }
         m.buttons.push_back({ACT_STOP, "Stop", true, true});
@@ -704,10 +907,25 @@ CardModel SmartEngine::buildCursorCard() {
     if (!cursorValid_ || dismissed_) { return m; }
     if (nowSec() - cursorSince_ < 0.45) { return m; }
     DetectedSignal sig;
-    if (!nearestSignal(cursorFreq_, cursorBw_, sig)) { return m; }
+    if (!nearestSignal(cursorFreq_, cursorBw_, sig)) {
+        // Nothing is above the noise here right now.  Text signals (pagers, sensors, APRS) only transmit now and then, so a
+        // cursor resting in a band that carries them still gets the decoder buttons: waiting on a quiet moment is the point.
+        auto btns = helperButtonsFor(cursorFreq_);
+        if (btns.empty() || nowSec() - cursorSince_ < 2.0) { return m; }   // a longer rest than for a signal: do not pester someone tuning around
+        m.visible = true;
+        m.freqHz = cursorFreq_;
+        m.tone = CardTone::Info;
+        m.title = "Nothing on the air here right now";
+        const BandEntry* band = bestBandFor(cursorFreq_);
+        m.subtitle = mhz(cursorFreq_) + (band ? std::string("  \xC2\xB7  ") + band->name : std::string());
+        m.lines.push_back("Signals in this band (pagers, sensors, APRS) only transmit now and then. Start a decoder and leave the cursor here to catch the next one.");
+        for (auto& b : btns) { m.buttons.push_back(b); }
+        m.buttons.push_back({ACT_DISMISS, "\xC3\x97", false, true});
+        return m;
+    }
     m.visible = true;
     m.freqHz = cursorFreq_;
-    const StoredResult* r = resultFor(sig.freqHz);
+    const IdentityEntry* r = ledger_.find(sig.freqHz);
     const bool narrow = sig.kind == SignalKind::Channel12k || sig.kind == SignalKind::Narrow;
 
     if (r && r->verdict.claimed) {

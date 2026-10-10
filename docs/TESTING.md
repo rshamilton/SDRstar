@@ -7,7 +7,7 @@ not be tested here it says so.
 
 | Layer | What it proves | Where |
 | --- | --- | --- |
-| **Core unit and integration tests** (82 test cases, about 58,700 checks, 13 programs) | The planner, rigctl bridge, process handling, signal detection, identification evidence rules, trunk follower, text decoders, resampler. The integration tests run the **real DSD-neo, multimon-ng and rtl_433** on recorded signals, with the radio replaced by a simulator. | `core/tests`, run with `ctest` (or `scripts/test_core.sh`) |
+| **Core unit and integration tests** (96 test cases, 14 programs) | The planner, rigctl bridge, process handling, signal detection, identification evidence rules, trunk follower, text decoders, resampler. The integration tests run the **real DSD-neo, multimon-ng and rtl_433** on recorded signals, with the radio replaced by a simulator. | `core/tests`, run with `ctest` (or `scripts/test_core.sh`) |
 | **Real-air trunk following** | The follower, with the real DSD-neo, on a real recorded P25 system, with a simulated RTL-SDR window moved over the recording. | `core/tests/test_real_trunk.cpp` |
 | **Sanitizers** | No data races (ThreadSanitizer) and no memory errors (AddressSanitizer / UBSan) in the core. | `scripts/ci_tsan.sh` runs on every push; AddressSanitizer + UBSan + LeakSanitizer were run by hand over the whole suite: no reports |
 | **Safety audit** | The safety claims in [SAFETY.md](SAFETY.md) hold in the source. | `scripts/safety_audit.sh`, every push |
@@ -91,6 +91,46 @@ Sanitizer caveat: the real-air test plays a recording against real-time deadline
 identification step can miss its deadline (a timing failure, not a memory or race report: both sanitizers reported
 nothing for it). CI therefore only fails on sanitizer *reports*.
 
+### Found in real use on a Mac, and how each was checked afterwards
+
+These came from the first real-use report, so they are listed separately. Anything marked *GUI* was reproduced with the
+**original** module and shown fixed with the new one, in the whole application under a virtual display, driven with
+simulated mouse clicks and measured from the screenshots (cursor position read from the red cursor line, UI brightness
+counted in pixels):
+
+* **The whole UI went black after pressing "Identify signal under the cursor"** (*GUI*: panel and frequency readout bright
+  pixels 8172 / 1980 before, 0 / 0 after, with the original; unchanged with the new one). The button's "disabled" scope was
+  opened and closed on a condition that the click itself changed, so the closing call popped style entries that belonged to the
+  rest of SDR++'s UI.
+* **"Center on signal" sent the cursor somewhere random, and so did Stop on a text-decode card** (*GUI*: with the original, "Center on
+  signal" left the cursor exactly where the button was, 830 kHz from the signal, and Stop moved it 18 pixels to the Stop button;
+  with the new one the cursor ends on the signal's centre, and stays put on Stop). A click on the card was also seen by the waterfall as "move the cursor here" for as long
+  as the mouse button stayed down, and once the card moved or vanished the still-held button dragged the cursor to the
+  button's position. A press that starts on the card now belongs to the card until it is released.
+* **Glitching from the moment Play was pressed.** Every SDR++ audio sink waits for data *inside the audio device's callback*.
+  SDRstar's second audio stream ("SDRstar Voice") had nothing to play except during a call, so its callback sat waiting and, on a
+  shared output device, stalled the radio's own stream. Measured with a test sink that behaves like those callbacks (paced
+  10 ms, blocking read): the original left the callback blocked for the whole idle time (0 callbacks in 1.5 s, one wait of
+  1.5 s) and 28 of 168 callbacks waited during a call arriving in DMR-style 60 ms bursts; the new voice output opens its device
+  only while a job runs, feeds it continuously, and had 0 waits in 419 callbacks (worst wait 2.3 ms).
+* **DMR "echo"**: decoded DMR voice arrives in 60 ms bursts; played as it arrived, every gap under-runs the device, and the
+  device repeats stale audio. Voice now goes through a small jitter buffer and is paced out in 20 ms pieces (the output matches
+  the decoded audio exactly: correlation 1.000, one fixed 180 ms delay, no gaps, drops or repeats). Separately, **mono voice was
+  played as stereo**: DSD-neo writes mono for P25 Phase 1, NXDN, dPMR, D-STAR, YSF, M17, ProVoice and EDACS and stereo only for
+  DMR and the P25/DMR helper preset (measured on the real decoder), and "Decode and listen" assumed stereo for all of them, so
+  those played at double speed.
+* **DMR channels were called "control channel (trunked system)"** because any "CSBK" line counted as control traffic, and
+  conventional repeaters print those too (the card then offered "Follow trunked system" and warned about a missing channel
+  list while the channel's own voice played). Only DSD-neo's real trunking messages (Tier III, Capacity Plus, Connect Plus) count
+  now, and the channel-list note says what a list adds instead of implying nothing works without one.
+* **Pager signal at the cursor produced nothing**: the band plan only listed pagers at 929-932 and 150-159 MHz (not US UHF
+  454 / 459 MHz, EU 466 / 169 MHz or 35 MHz), and a pager that is between transmissions has no detected signal, so no card and no
+  button appeared at all. Those bands are now listed, and a cursor resting in a band with text decoders gets a card with the
+  decoder button even when nothing is on the air at that instant. The text decoders also follow the cursor now (and stop leaves it
+  alone).
+* **Labels flickered and covered every signal.** Labels are now limited to identified signals by default (one setting turns the
+  old behaviour back on), and an identified signal keeps its identity unless two automatic tests agree on another protocol.
+
 ## 5. Known weak spots (measured)
 
 * **NXDN96 and dPMR** decode only weakly through the audio (FM discriminator) path SDRstar feeds the decoder, so they
@@ -105,6 +145,12 @@ nothing for it). CI therefore only fails on sanitizer *reports*.
 
 ## 6. What could not be tested here
 
+* **The audio glitch and the DMR stutter on a real Mac.** The mechanism (a blocking read inside the device callback, a
+  second stream on the same device, bursty DMR voice) was measured with a test sink that has the same behaviour, and the fix
+  was exercised against SDR++'s real PortAudio sink on a null ALSA device (three follow / stop cycles, device opened once per job,
+  none while idle), but there is no sound hardware and no CoreAudio here. The cause of the "three echoes" in particular was not
+  reproduced from a recording; the DMR decoder output itself contains no repeated audio, and the playout above is what removes the
+  stalls that would produce them.
 * **A real RTL-SDR on a real Mac**: no hardware and no Mac were available. Untested: USB streaming, real retune latency,
   audio output device handling, the GUI's OpenGL window on a real display (GitHub's Mac runners have no usable window
   server, so CI only proves that every plug-in loads and a headless launch works).

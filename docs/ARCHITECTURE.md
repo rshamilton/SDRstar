@@ -117,6 +117,23 @@ the *radio*:
    * with a recording as the source (cannot retune): say what range the recording covers.
 4. Decoded voice comes back on DSD-neo's stdout and plays through an SDR++ audio stream ("SDRstar Voice"), so volume
    and output device work as usual; the radio is muted meanwhile.
+5. The cursor (the user's VFO) is bound to what is being heard: it snaps onto the control channel when following starts,
+   follows the receiver to each voice channel and back, and moving it off the channel stops the job. The follower may be
+   mid-retune on another thread when the cursor jumps with the window, so a cursor jump is only read as a user click after the
+   window has settled (0.8 s), and a click during a call first returns to the control channel and then stops. The same applies
+   to "Decode and listen". The text decoders are the exception: they follow the cursor (`HelperDecoder::retarget`).
+
+*Voice output (`modules/sdrstar_smart/src/voice_out.cpp`).* SDR++'s audio sinks read their input inside the audio-device
+callback and wait there for data, so a second stream on the same device that has nothing to play stalls the device thread
+and the radio's own stream glitches with it. The voice stream is therefore opened only while a decode or follow job runs, and
+while open it is fed continuously (silence between calls). Decoded voice (mono or stereo, as the preset writes it:
+`dsdOutputChannels()`) goes through a jitter buffer that starts playing at 80 ms and is paced out in 20 ms pieces, because DSD-neo
+delivers DMR in 60 ms bursts and a bursty feed under-runs the device. Stopping the follower joins threads that can be waiting for
+a lock the GUI thread holds while it draws, so `SmartEngine` does that on a helper thread.
+
+*Identity (`core/src/identity_ledger.cpp`).* What each frequency was identified as is kept in a ledger that decides when a new probe
+may change it (the same answer refreshes, a different one has to be seen twice, the user's own "Re-check" wins at once, a quiet
+probe never erases an identity); the waterfall labels come from it.
 
 A retune is budgeted at about a quarter of a second (not yet measured on real hardware); the channel is muted across the gap so no junk reaches the decoder.
 

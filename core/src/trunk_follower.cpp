@@ -174,11 +174,17 @@ bool TrunkFollower::returnToControl() {
         std::lock_guard<std::mutex> lk(mtx_);
         c = st_.controlHz;
     }
-    return handleTuneRequest(c);
+    std::unique_lock<std::mutex> tl(tuneMtx_, std::try_to_lock);
+    if (!tl.owns_lock()) { return false; }
+    return handleTuneRequestLocked(c);
 }
 
 bool TrunkFollower::handleTuneRequest(double hz) {
     std::lock_guard<std::mutex> tl(tuneMtx_);
+    return handleTuneRequestLocked(hz);
+}
+
+bool TrunkFollower::handleTuneRequestLocked(double hz) {
     if (!dsd_ || channel_ < 0) { return false; }
 
     double controlHz;

@@ -67,12 +67,15 @@ IdentityOutcome IdentityLedger::offer(double freqHz, double bwHz, const ProbeVer
             merged.title = e->verdict.title;
         }
         if (merged.detail.empty()) { merged.detail = e->verdict.detail; }
-        e->verdict = merged;
-        e->whenSec = nowSec;
-        e->lastSeenSec = nowSec;
-        e->disagreements = 0;
-        e->challenger.clear();
-        e->freqHz = freqHz;
+        IdentityEntry n = *e;
+        n.verdict = merged;
+        n.whenSec = nowSec;
+        n.lastSeenSec = nowSec;
+        n.disagreements = 0;
+        n.challenger.clear();
+        n.freqHz = freqHz;   // the latest (refined) centre; the entry is re-keyed so forget() keeps working
+        entries_.erase(keyFor(e->freqHz));
+        entries_[keyFor(freqHz)] = n;
         return IdentityOutcome::Confirmed;
     }
 

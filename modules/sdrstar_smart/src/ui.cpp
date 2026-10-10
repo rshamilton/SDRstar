@@ -67,7 +67,7 @@ void SmartUi::drawLabels(const ImGui::WaterFall::FFTRedrawArgs& a) {
     const float pad = 3.0f * style::uiScale;
     const float rowH = fs + 2 * pad + 2.0f;
 
-    std::vector<sdrstar::DetectedSignal> sigs = eng_.signals();
+    std::vector<sdrstar::DetectedSignal> sigs = eng_.labelSignals();   // everything found, or only what has been identified (setting)
     // strongest first so important labels win collisions
     std::sort(sigs.begin(), sigs.end(), [](const sdrstar::DetectedSignal& x, const sdrstar::DetectedSignal& y) { return x.snrDb > y.snrDb; });
 
@@ -183,6 +183,14 @@ void SmartUi::drawCard(const ImGui::WaterFall::FFTRedrawArgs& a) {
     }
     if (rowsOfButtons) { h += 8.0f * u + rowsOfButtons * (btnH + 5.0f * u) - 5.0f * u; }
     h += pad;
+    // The card must fit inside the spectrum: when it would not, drop information lines (from the end) rather than let the
+    // buttons, Stop above all, be clipped off the bottom.
+    const float availH = (a.max.y - a.min.y) - 10.0f * u;
+    while (h > availH && !m.lines.empty()) {
+        h -= 5.0f * u + lineSizes.back().y;
+        lineSizes.pop_back();
+        m.lines.pop_back();
+    }
 
     // --- place near the cursor / job frequency ---
     const float fx = a.min.x + (float)((m.freqHz - a.lowFreq) * a.freqToPixelRatio);
@@ -268,11 +276,17 @@ void SmartUi::drawCard(const ImGui::WaterFall::FFTRedrawArgs& a) {
 // ------------------------------------------------------------------------------------------------------------
 void SmartUi::onInput(ImGui::WaterFall::InputHandlerArgs, void* ctx) {
     SmartUi* u = (SmartUi*)ctx;
-    if (!u->cardShown_) { return; }
+    // A press that starts on the card is the card's for as long as the mouse button stays down.  Acting on the click
+    // changes the card (a job stops, the cursor moves and the card moves with it, the card disappears), so a few frames
+    // later the mouse is no longer over it; without this the waterfall would take the still-held button for "move the
+    // cursor here" and drag the cursor to wherever the card's button had been.
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) { u->pressOnCard_ = false; }
     const ImVec2 mp = ImGui::GetMousePos();
-    const bool over = mp.x >= u->cardMin_.x && mp.x <= u->cardMax_.x && mp.y >= u->cardMin_.y && mp.y <= u->cardMax_.y;
-    if (!over) { return; }
+    const bool over = u->cardShown_ && mp.x >= u->cardMin_.x && mp.x <= u->cardMax_.x && mp.y >= u->cardMin_.y && mp.y <= u->cardMax_.y;
+    if (over && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { u->pressOnCard_ = true; }
+    if (!over && !u->pressOnCard_) { return; }
     gui::waterfall.inputHandled = true;
+    if (!over) { return; }
     for (const auto& h : u->hits_) {
         if (h.enabled && mp.x >= h.min.x && mp.x <= h.max.x && mp.y >= h.min.y && mp.y <= h.max.y) {
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
@@ -299,6 +313,13 @@ void SmartUi::drawMenu() {
     ImGui::Separator();
 
     changed |= ImGui::Checkbox("Label signals on the waterfall##sdrstar", &s.showLabels);
+    if (!s.showLabels) { style::beginDisabled(); }
+    changed |= ImGui::Checkbox("Only label signals that have been identified##sdrstar", &s.labelOnlyIdentified);
+    if (!s.showLabels) { style::endDisabled(); }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("ON: only signals whose protocol has been identified (P25, DMR, NXDN ...) get a label, and the label stays\n"
+                          "the same until the signal really changes.\nOFF: every signal found is labelled with what can be seen of it.");
+    }
     changed |= ImGui::Checkbox("Quietly identify steady digital signals##sdrstar", &s.autoIdentify);
     ImGui::TextUnformatted("Sensitivity: signal must rise this many dB above noise");
     ImGui::SetNextItemWidth(w);
@@ -311,9 +332,16 @@ void SmartUi::drawMenu() {
 
     ImGui::Spacing();
     const bool busy = eng_.jobKind() != JobKind::None;
-    if (!eng_.cursorValid() || eng_.jobKind() == JobKind::Probing || !eng_.decoderAvailable()) { style::beginDisabled(); }
-    if (ImGui::Button("Identify signal under the cursor##sdrstar", ImVec2(w, 0))) { eng_.doAction(ACT_IDENTIFY); }
-    if (!eng_.cursorValid() || eng_.jobKind() == JobKind::Probing || !eng_.decoderAvailable()) { style::endDisabled(); }
+    {
+        // Decided ONCE: clicking the button starts a probe, which would flip the condition between the begin and the end of the
+        // disabled scope, and an end without its begin pops style entries that belong to the rest of SDR++'s UI (everything
+        // went dark).
+        const bool identifyDisabled = !eng_.cursorValid() || eng_.jobKind() == JobKind::Probing || !eng_.decoderAvailable();
+        if (identifyDisabled) { style::beginDisabled(); }
+        const bool identifyClicked = ImGui::Button("Identify signal under the cursor##sdrstar", ImVec2(w, 0));
+        if (identifyDisabled) { style::endDisabled(); }
+        if (identifyClicked) { eng_.doAction(ACT_IDENTIFY); }
+    }
 
     ImGui::Spacing();
     ImGui::Text("Status");
@@ -340,11 +368,15 @@ void SmartUi::drawMenu() {
         const bool fixedFreq = std::string(ids[pick]) == "adsb";   // always 1090 MHz: no cursor needed
         const bool can = (fixedFreq || eng_.cursorValid()) && eng_.helperAvailable(ids[pick]);
         if (!can) { style::beginDisabled(); }
-        if (ImGui::Button(fixedFreq ? "Listen on 1090 MHz##sdrstar_helper_go" : "Decode at the cursor##sdrstar_helper_go", ImVec2(w, 0))) {
-            eng_.startHelper(ids[pick], eng_.cursorFreq());
-        }
+        const bool go = ImGui::Button(fixedFreq ? "Listen on 1090 MHz##sdrstar_helper_go" : "Decode at the cursor##sdrstar_helper_go", ImVec2(w, 0));
         if (!can) { style::endDisabled(); }
+        if (go) { eng_.startHelper(ids[pick], eng_.cursorFreq()); }
         if (!eng_.helperAvailable(ids[pick])) { ImGui::TextDisabled("This decoder was not found in the app bundle."); }
+        if (!fixedFreq && eng_.jobKind() == JobKind::Helper) {
+            ImGui::TextDisabled("Following the cursor: move it to decode another frequency.");
+        } else if (!fixedFreq) {
+            ImGui::TextDisabled("Once on, it follows the cursor.");
+        }
     }
     if (eng_.jobKind() == JobKind::Helper) {
         auto ls = eng_.helperLines(120);
