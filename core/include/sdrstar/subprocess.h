@@ -5,8 +5,8 @@
 // Design notes (these matter for a GUI app that must never hang or leak processes):
 //  * stdin is a UNIX socketpair, not a pipe, so writes can use MSG_NOSIGNAL / SO_NOSIGPIPE and a dead
 //    child can never raise SIGPIPE inside the host application.
-//  * If the host dies, the socket closes, the child sees EOF on stdin and exits.  On Linux we also
-//    request PDEATHSIG.
+//  * If the host dies (even by SIGKILL), the kernel closes the socket, the child sees EOF on stdin and exits.
+//    (Verified by tests/test_subprocess.cpp.)
 //  * Writes are non-blocking and bounded: when the child cannot keep up the oldest data is dropped
 //    by the caller (see PcmFeeder) instead of ever blocking the SDR++ DSP thread.
 //  * stop() sends SIGTERM, waits briefly, then SIGKILL.  The destructor always reaps the child.
