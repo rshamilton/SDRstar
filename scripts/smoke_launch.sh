@@ -91,7 +91,7 @@ cc -O1 -o "$TMP/dlcheck" "$PACKAGING/dlcheck.c" || fail "could not compile dlche
 if clean_env "$TMP/dlcheck" "$APP"/Contents/Plugins/*.dylib >"$TMP/dlcheck.out" 2>&1; then
     tail -n 1 "$TMP/dlcheck.out" | tee -a "$LOG"
 else
-    cat "$TMP/dlcheck.out" | tee -a "$LOG"
+    tee -a "$LOG" <"$TMP/dlcheck.out"
     fail "some plugins cannot be loaded from the bundle"
 fi
 LEVEL_DLCHECK="PASS ($(tail -n 1 "$TMP/dlcheck.out"))"
