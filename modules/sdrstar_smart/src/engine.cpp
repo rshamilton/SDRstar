@@ -412,6 +412,15 @@ void SmartEngine::startFollow(const StoredResult& r) {
     else if (id == "nxdn96") { c.mode = {"-fn"}; }
     else if (id == "nxdn48") { c.mode = {"-fi"}; }
     else if (id == "edacs" || id == "provoice") { c.mode = {"-fh"}; }
+    std::error_code fec;
+    if (!settings_.channelMapPath.empty() && !std::filesystem::exists(settings_.channelMapPath, fec)) {
+        addNote("The channel list file was not found: " + settings_.channelMapPath + ". Fix the path in the SDRstar panel (or clear it) and try again.");
+        return;
+    }
+    if (!settings_.groupListPath.empty() && !std::filesystem::exists(settings_.groupListPath, fec)) {
+        addNote("The talkgroup list file was not found: " + settings_.groupListPath + ". Fix the path in the SDRstar panel (or clear it) and try again.");
+        return;
+    }
     if (!settings_.channelMapPath.empty()) { c.extraArgs.insert(c.extraArgs.end(), {"-C", settings_.channelMapPath}); }
     if (!settings_.groupListPath.empty()) { c.extraArgs.insert(c.extraArgs.end(), {"-G", settings_.groupListPath}); }
     follower_.setAudioCallback([this](const int16_t* d, size_t n, int ch, int rate) { voice_.push(d, n, ch, rate); });
@@ -566,6 +575,14 @@ CardModel SmartEngine::card() {
         std::snprintf(buf, sizeof buf, "Window moves: %d   Calls followed: %d   Hops: %d   Skipped: %d", st.windowRetunes, st.channelMoves + st.hops, st.hops, st.refusals);
         m.lines.push_back(buf);
         if (st.state == FollowState::Paused) { m.buttons.push_back({ACT_RETURN, "Return to control channel", true, true}); }
+        {
+            const std::string& pr = st.dsd.protocol;
+            const bool needsList = pr.find("DMR") != std::string::npos || pr.find("NXDN") != std::string::npos || pr.find("EDACS") != std::string::npos ||
+                                   pr.find("ProVoice") != std::string::npos;
+            if (needsList && settings_.channelMapPath.empty()) {
+                m.lines.push_back("This kind of system does not announce its channel frequencies. Without a channel list (SDRstar panel, \"Channel list CSV\") SDRstar can hear the control channel but cannot know where calls are.");
+            }
+        }
         m.buttons.push_back({ACT_TOGGLE_HOP, settings_.allowHop ? "Hop to out-of-range calls: ON" : "Hop to out-of-range calls: OFF", false, true});
         m.buttons.push_back({ACT_STOP, "Stop following", true, true});
         return m;
