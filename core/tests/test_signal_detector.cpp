@@ -81,7 +81,8 @@ TEST(single_digital_channel_is_found_with_correct_centre_and_width) {
         CHECK(s.activity > 0.9);
         CHECK(s.steady);
         CHECK_CONTAINS(s.hint, "800 MHz");           // band-plan hint for 851 MHz
-        CHECK_EQ(s.label, std::string("control channel?"));  // steady narrow carrier in a trunking band
+        CHECK_EQ(s.label, std::string("12.5 kHz, steady"));   // facts on the label...
+        CHECK_CONTAINS(s.note, "control channel");             // ...speculation (trunk band) only in the note
     }
 }
 
@@ -92,7 +93,8 @@ TEST(spectrum_shape_alone_never_claims_digital) {
     CHECK_EQ(det.signals().size(), (size_t)1);
     if (det.signals().size() == 1) {
         // 146 MHz is the 2 m amateur band: a steady 12.5 kHz signal there is just "a 12.5 kHz signal", never "digital" or "control channel".
-        CHECK_EQ(det.signals()[0].label, std::string("12.5 kHz signal"));
+        CHECK_EQ(det.signals()[0].label, std::string("12.5 kHz, steady"));
+        CHECK(det.signals()[0].note.find("control channel") == std::string::npos);  // 2 m amateur band: no trunking speculation
     }
 }
 
@@ -117,6 +119,16 @@ TEST(adjacent_channels_stay_separate) {
         feed(det, makeSpectrum(16384, 2.4e6, {{-12500, 9000, 30}, {12500, 9000, 30}}, rng), 460e6, 2.4e6, i * 0.2);
     }
     CHECK_EQ(det.signals().size(), (size_t)2);
+}
+
+TEST(signals_in_the_unusable_edge_skirt_are_ignored) {
+    std::mt19937 rng(11);
+    SignalDetector det;
+    // 2.4 MHz span: +/-1.2 MHz; the outer 7 % (168 kHz) is roll-off territory.  A signal at +1.17 MHz must not be reported,
+    // one at +1.0 MHz must be.
+    for (int i = 0; i < 30; ++i) { feed(det, makeSpectrum(8192, 2.4e6, {{1.17e6, 12500, 30}, {1.0e6, 12500, 30}}, rng), 851e6, 2.4e6, i * 0.2); }
+    CHECK_EQ(det.signals().size(), (size_t)1);
+    if (!det.signals().empty()) { CHECK_NEAR(det.signals()[0].freqHz, 852.0e6, 1500.0); }
 }
 
 TEST(dc_spike_is_not_a_signal) {

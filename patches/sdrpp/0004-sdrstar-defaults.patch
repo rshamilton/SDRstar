@@ -1,0 +1,87 @@
+diff --git a/core/src/command_args.cpp b/core/src/command_args.cpp
+index 9b3174c..69da60e 100644
+--- a/core/src/command_args.cpp
++++ b/core/src/command_args.cpp
+@@ -6,11 +6,11 @@ void CommandArgsParser::defineAll() {
+         std::string root = ".";
+         define('c', "con", "Show console on Windows");
+ #elif defined(IS_MACOS_BUNDLE)
+-        std::string root = (std::string)getenv("HOME") + "/Library/Application Support/sdrpp";
++        std::string root = (std::string)getenv("HOME") + "/Library/Application Support/SDRstar";
+ #elif defined(__ANDROID__)
+         std::string root = "/storage/self/primary/sdrpp";
+ #else
+-        std::string root = (std::string)getenv("HOME") + "/.config/sdrpp";
++        std::string root = (std::string)getenv("HOME") + "/.config/sdrstar";
+ #endif
+ 
+         define('a', "addr", "Server mode address", "0.0.0.0");
+diff --git a/core/src/core.cpp b/core/src/core.cpp
+index 2b6a89d..2a3ac6c 100644
+--- a/core/src/core.cpp
++++ b/core/src/core.cpp
+@@ -138,27 +138,30 @@ int sdrpp_main(int argc, char* argv[]) {
+     defConfig["menuElements"][0]["name"] = "Source";
+     defConfig["menuElements"][0]["open"] = true;
+ 
+-    defConfig["menuElements"][1]["name"] = "Radio";
++    defConfig["menuElements"][1]["name"] = "SDRstar";
+     defConfig["menuElements"][1]["open"] = true;
+ 
+-    defConfig["menuElements"][2]["name"] = "Recorder";
++    defConfig["menuElements"][2]["name"] = "Radio";
+     defConfig["menuElements"][2]["open"] = true;
+ 
+-    defConfig["menuElements"][3]["name"] = "Sinks";
++    defConfig["menuElements"][3]["name"] = "Recorder";
+     defConfig["menuElements"][3]["open"] = true;
+ 
+-    defConfig["menuElements"][4]["name"] = "Frequency Manager";
++    defConfig["menuElements"][4]["name"] = "Sinks";
+     defConfig["menuElements"][4]["open"] = true;
+ 
+-    defConfig["menuElements"][5]["name"] = "VFO Color";
++    defConfig["menuElements"][5]["name"] = "Frequency Manager";
+     defConfig["menuElements"][5]["open"] = true;
+ 
+-    defConfig["menuElements"][6]["name"] = "Band Plan";
++    defConfig["menuElements"][6]["name"] = "VFO Color";
+     defConfig["menuElements"][6]["open"] = true;
+ 
+-    defConfig["menuElements"][7]["name"] = "Display";
++    defConfig["menuElements"][7]["name"] = "Band Plan";
+     defConfig["menuElements"][7]["open"] = true;
+ 
++    defConfig["menuElements"][8]["name"] = "Display";
++    defConfig["menuElements"][8]["open"] = true;
++
+     defConfig["menuWidth"] = 300;
+     defConfig["min"] = -120.0;
+ 
+@@ -216,6 +219,7 @@ int sdrpp_main(int argc, char* argv[]) {
+     defConfig["moduleInstances"]["Network Sink"] = "network_sink";
+ 
+     defConfig["moduleInstances"]["Radio"] = "radio";
++    defConfig["moduleInstances"]["SDRstar"] = "sdrstar_smart";
+ 
+     defConfig["moduleInstances"]["Frequency Manager"] = "frequency_manager";
+     defConfig["moduleInstances"]["Recorder"] = "recorder";
+@@ -247,7 +251,7 @@ int sdrpp_main(int argc, char* argv[]) {
+     defConfig["manualOffset"] = 0.0;
+     defConfig["showMenu"] = true;
+     defConfig["showWaterfall"] = true;
+-    defConfig["source"] = "";
++    defConfig["source"] = "RTL-SDR";
+     defConfig["decimation"] = 1;
+     defConfig["iqCorrection"] = false;
+     defConfig["invertIQ"] = false;
+@@ -255,6 +259,9 @@ int sdrpp_main(int argc, char* argv[]) {
+     defConfig["streams"]["Radio"]["muted"] = false;
+     defConfig["streams"]["Radio"]["sink"] = "Audio";
+     defConfig["streams"]["Radio"]["volume"] = 1.0f;
++    defConfig["streams"]["SDRstar Voice"]["muted"] = false;
++    defConfig["streams"]["SDRstar Voice"]["sink"] = "Audio";
++    defConfig["streams"]["SDRstar Voice"]["volume"] = 1.0f;
+ 
+     defConfig["windowSize"]["h"] = 720;
+     defConfig["windowSize"]["w"] = 1280;

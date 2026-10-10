@@ -1,0 +1,35 @@
+diff --git a/core/backends/glfw/backend.cpp b/core/backends/glfw/backend.cpp
+index cdf0c5c..f0b30b4 100644
+--- a/core/backends/glfw/backend.cpp
++++ b/core/backends/glfw/backend.cpp
+@@ -87,7 +87,7 @@ namespace backend {
+ 
+         // Create window with graphics context
+         monitor = glfwGetPrimaryMonitor();
+-        window = glfwCreateWindow(winWidth, winHeight, "SDR++ v" VERSION_STR " (Built at " __TIME__ ", " __DATE__ ")", NULL, NULL);
++        window = glfwCreateWindow(winWidth, winHeight, "SDRstar  (built on SDR++ v" VERSION_STR ")", NULL, NULL);
+         if (window == NULL)
+             return 1;
+         glfwMakeContextCurrent(window);
+@@ -105,7 +105,7 @@ namespace backend {
+             
+             // Create window with graphics context
+             monitor = glfwGetPrimaryMonitor();
+-            window = glfwCreateWindow(winWidth, winHeight, "SDR++ v" VERSION_STR " (Built at " __TIME__ ", " __DATE__ ")", NULL, NULL);
++            window = glfwCreateWindow(winWidth, winHeight, "SDRstar  (built on SDR++ v" VERSION_STR ")", NULL, NULL);
+             if (window == NULL) {
+                 flog::info("OpenGL {0}.{1} {2}was not supported", OPENGL_VERSIONS_MAJOR[i], OPENGL_VERSIONS_MINOR[i], OPENGL_VERSIONS_IS_ES[i] ? "ES " : "");
+                 continue;
+diff --git a/core/src/gui/dialogs/credits.cpp b/core/src/gui/dialogs/credits.cpp
+index 781677b..23e8ba9 100644
+--- a/core/src/gui/dialogs/credits.cpp
++++ b/core/src/gui/dialogs/credits.cpp
+@@ -64,7 +64,7 @@ namespace credits {
+         ImGui::Spacing();
+         ImGui::Spacing();
+         ImGui::Spacing();
+-        ImGui::TextUnformatted("SDR++ v" VERSION_STR " (Built at " __TIME__ ", " __DATE__ ")");
++        ImGui::TextUnformatted("SDRstar, built on SDR++ v" VERSION_STR " (Built at " __TIME__ ", " __DATE__ ")");
+ 
+         ImGui::EndPopup();
+         ImGui::PopStyleColor();

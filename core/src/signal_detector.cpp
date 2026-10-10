@@ -141,12 +141,12 @@ void classifyFromSpectrum(DetectedSignal& s) {
     default:
         s.label = "signal";
     }
-    // A steady narrow carrier in a trunking band is what a control channel looks like (voice channels key up and down).
-    if (narrowChannel && s.steady && trunkBand) {
-        s.label = "control channel?";
-        s.note = "Steady narrow carrier in a band used for trunked radio: could be a trunking control channel. Rest the cursor on it to identify.";
-    } else if (narrowChannel && s.steady) {
-        s.note = "Steady narrow carrier (continuous): data/beacon style rather than push-to-talk voice. Rest the cursor on it to identify.";
+    // The label states facts; speculation goes in the note.  A steady narrow carrier in a trunking band is what a
+    // control channel looks like (voice channels key up and down), but it is only a hint until a decoder confirms it.
+    if (narrowChannel && s.steady) {
+        s.label = s.kind == SignalKind::Narrow ? "narrow, steady" : "12.5 kHz, steady";
+        s.note = trunkBand ? "Steady narrow carrier in a band used for trunked radio: could be a trunking control channel. Rest the cursor on it to identify."
+                           : "Steady narrow carrier (continuous): data/beacon style rather than push-to-talk voice. Rest the cursor on it to identify.";
     } else if (narrowChannel) {
         s.note = "Narrow signal that comes and goes: typical of push-to-talk voice. Rest the cursor on it to identify.";
     }
@@ -275,6 +275,9 @@ void SignalDetector::update(const SpectrumFrame& f, double nowSec) {
         double acc = 0;
         for (int i = a0; i <= b0; ++i) { acc += fastDbToLin(sm[i]); }
         const double centralDb = fastLinToDb((float)(acc / (double)(b0 - a0 + 1)));
+
+        // The outer part of the capture is not usable (filter roll-off, aliasing): do not report signals there.
+        if (std::fabs(freq - f.centerHz) > f.spanHz * (0.5 - p_.edgeGuardFraction)) { continue; }
 
         // DC leakage: narrow thing sitting at the centre of the capture
         if (std::fabs(freq - f.centerHz) < p_.dcIgnoreHz && bw < 4 * binHz + 3000.0) { continue; }

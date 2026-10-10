@@ -1,0 +1,57 @@
+diff --git a/decoder_modules/radio/src/radio_interface.h b/decoder_modules/radio/src/radio_interface.h
+index 7e7b436..7d30b7f 100644
+--- a/decoder_modules/radio/src/radio_interface.h
++++ b/decoder_modules/radio/src/radio_interface.h
+@@ -12,7 +12,11 @@ enum {
+     RADIO_IFACE_CMD_GET_CTCSS_TONE,
+     RADIO_IFACE_CMD_SET_CTCSS_TONE,
+     RADIO_IFACE_CMD_GET_HIGHPASS,
+-    RADIO_IFACE_CMD_SET_HIGHPASS
++    RADIO_IFACE_CMD_SET_HIGHPASS,
++    // SDRstar: silence / restore this radio's audio (used while the smart layer plays decoded digital voice).
++    // `in` / `out` point to a bool.
++    RADIO_IFACE_CMD_SET_MUTE,
++    RADIO_IFACE_CMD_GET_MUTE
+ };
+ 
+ enum {
+diff --git a/decoder_modules/radio/src/radio_module.h b/decoder_modules/radio/src/radio_module.h
+index 52016b4..480726d 100644
+--- a/decoder_modules/radio/src/radio_module.h
++++ b/decoder_modules/radio/src/radio_module.h
+@@ -186,6 +186,9 @@ public:
+     };
+ 
+ private:
++    bool sdrstarMuted = false;
++    float sdrstarSavedVolume = 1.0f;
++
+     static void menuHandler(void* ctx) {
+         RadioModule* _this = (RadioModule*)ctx;
+ 
+@@ -780,6 +783,25 @@ private:
+     static void moduleInterfaceHandler(int code, void* in, void* out, void* ctx) {
+         RadioModule* _this = (RadioModule*)ctx;
+ 
++        // SDRstar: mute hook (works even when no demodulator is selected)
++        if (code == RADIO_IFACE_CMD_SET_MUTE && in) {
++            bool mute = *(bool*)in;
++            if (mute && !_this->sdrstarMuted) {
++                _this->sdrstarSavedVolume = _this->stream.getVolume();
++                _this->stream.setVolume(0.0f);
++                _this->sdrstarMuted = true;
++            }
++            else if (!mute && _this->sdrstarMuted) {
++                _this->stream.setVolume(_this->sdrstarSavedVolume);
++                _this->sdrstarMuted = false;
++            }
++            return;
++        }
++        if (code == RADIO_IFACE_CMD_GET_MUTE && out) {
++            *(bool*)out = _this->sdrstarMuted;
++            return;
++        }
++
+         // If no demod is selected, reject the command
+         if (!_this->selectedDemod) { return; }
+ 

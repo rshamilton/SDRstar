@@ -61,12 +61,13 @@ struct SpectrumFrame {
 };
 
 struct DetectorParams {
-    double marginDb = 8.0;        // threshold above the local floor
+    double marginDb = 10.0;        // threshold above the local floor
     double minBwHz = 1500.0;      // ignore anything narrower
     double mergeGapHz = 2500.0;   // gaps this small inside a signal do not split it
     double smoothHz = 1000.0;     // spectral smoothing width
     double avgAlpha = 0.35;       // power-domain EMA weight of the newest frame (0..1)
     double dcIgnoreHz = 4000.0;   // narrow spikes this close to the centre are DC leakage, not signals
+    double edgeGuardFraction = 0.07;  // ignore this fraction of the span at each edge (unusable roll-off region)
     double forgetAfterSec = 6.0;  // drop tracked signals not seen for this long
     int activityWindow = 40;      // scans used for the activity ratio
 };
