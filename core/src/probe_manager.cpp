@@ -15,8 +15,17 @@ std::vector<std::string> candidatePresetsFor(double bwHz, double freqHz) {
         v = {"nxdn48", "dpmr"};
         return v;
     }
-    v = {"p25p1", "dmr", "p25p2", "dstar", "ysf", "nxdn96", "edacs", "provoice"};
-    if (bandSuggests(freqHz, "m17") || bandSuggests(freqHz, "dstar")) { v.push_back("m17"); }
+    // Fewer decoders means less CPU and fewer chances for a false claim, so use what the band says about who lives
+    // there: D-STAR / YSF / M17 are amateur-only modes, EDACS / ProVoice are land-mobile-only.  An unknown band
+    // (HF, odd frequency, a band the table does not cover) tries everything.
+    const bool amateur = bandSuggests(freqHz, "dstar") || bandSuggests(freqHz, "ysf") || bandSuggests(freqHz, "m17");
+    const bool landMobile = bandSuggests(freqHz, "edacs") || bandSuggests(freqHz, "smartnet") ||
+                            (bandSuggests(freqHz, "p25") && !amateur);
+    v = {"p25p1", "dmr", "p25p2"};
+    if (!landMobile) { v.insert(v.end(), {"dstar", "ysf"}); }
+    v.push_back("nxdn96");
+    if (!amateur) { v.insert(v.end(), {"edacs", "provoice"}); }
+    if (!landMobile && (amateur || bandSuggests(freqHz, "m17") || bandSuggests(freqHz, "dstar"))) { v.push_back("m17"); }
     return v;
 }
 

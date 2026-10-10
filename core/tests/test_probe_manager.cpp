@@ -48,6 +48,11 @@ TEST(candidate_presets_follow_bandwidth_and_band) {
     CHECK(std::find(wide.begin(), wide.end(), "m17") == wide.end());
     auto ham = candidatePresetsFor(9000, 440e6);
     CHECK(std::find(ham.begin(), ham.end(), "m17") != ham.end());
+    CHECK(std::find(ham.begin(), ham.end(), "dstar") != ham.end());
+    CHECK(std::find(ham.begin(), ham.end(), "edacs") == ham.end());       // land-mobile-only modes are not tried on a ham band
+    CHECK(std::find(wide.begin(), wide.end(), "dstar") == wide.end());    // amateur-only modes are not tried on public-safety bands
+    CHECK(std::find(wide.begin(), wide.end(), "edacs") != wide.end());
+    CHECK(candidatePresetsFor(9000, 30e6).size() >= 8);                   // unknown band: try everything
 }
 
 TEST(probe_identifies_p25_control_channel_in_a_busy_window) {
@@ -69,14 +74,15 @@ TEST(probe_identifies_dmr_and_dstar_and_ignores_noise) {
     if (!dsdExe() || !fixDir()) { return; }
     SimHost host(851.4e6, 2.4e6);
     host.addSignal("DMR", 852.0e6, load("dmr_voice"));
-    host.addSignal("DSTAR", 850.8e6, load("dstar"));
+    SimHost hamHost(440.4e6, 2.4e6);   // D-STAR is amateur-only, so it is only tried (and tested) on an amateur band
+    hamHost.addSignal("DSTAR", 440.0e6, load("dstar"));
     ProbeProgress a = runProbe(host, 852.0e6, 12500);
     std::printf("  852.0 MHz: %s\n", a.best.claimed ? a.best.title.c_str() : "(none)");
     CHECK(a.best.claimed);
     CHECK_CONTAINS(a.best.protocol, "DMR");
     CHECK(!a.best.trunkable);
-    ProbeProgress b = runProbe(host, 850.8e6, 12500);
-    std::printf("  850.8 MHz: %s\n", b.best.claimed ? b.best.title.c_str() : "(none)");
+    ProbeProgress b = runProbe(hamHost, 440.0e6, 12500);
+    std::printf("  440.0 MHz: %s\n", b.best.claimed ? b.best.title.c_str() : "(none)");
     CHECK(b.best.claimed);
     CHECK_CONTAINS(b.best.protocol, "D-STAR");
     // an empty channel must never be identified as anything

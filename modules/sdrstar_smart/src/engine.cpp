@@ -273,8 +273,13 @@ void SmartEngine::pollProbe(double now) {
     if (p.best.claimed) {
         std::lock_guard<std::mutex> lk(detMtx_);
         det_.setIdentified(jobFreq_, p.best.title, p.best.detail);
+        noClaimCount_.erase(keyFor(jobFreq_));
     } else {
-        noClaimUntil_[keyFor(jobFreq_)] = now + 90.0;
+        // Back off: 1.5 min, 4.5 min, 13 min, then once an hour.  An analog channel that is always on would otherwise
+        // be re-tested (several decoder processes, a few seconds of CPU) forever.  The user can always ask again.
+        const int n = ++noClaimCount_[keyFor(jobFreq_)];
+        const double wait = std::min(3600.0, 90.0 * std::pow(3.0, n - 1));
+        noClaimUntil_[keyFor(jobFreq_)] = now + wait;
     }
     job_ = JobKind::None;
 }
@@ -285,6 +290,17 @@ void SmartEngine::autoProbe(double now) {
     lastAutoScanSec_ = now;
     if (now - lastAutoProbeSec_ < 4.0) { return; }
     std::vector<DetectedSignal> sigs = signals();
+    // A frequency that has been empty for a while is a different story when something shows up there again.
+    for (const auto& s : sigs) { bucketSeenSec_[keyFor(s.freqHz)] = now; }
+    for (auto it = bucketSeenSec_.begin(); it != bucketSeenSec_.end();) {
+        if (now - it->second > 120.0) {
+            noClaimUntil_.erase(it->first);
+            noClaimCount_.erase(it->first);
+            it = bucketSeenSec_.erase(it);
+        } else {
+            ++it;
+        }
+    }
     const DetectedSignal* best = nullptr;
     for (const auto& s : sigs) {
         if (!s.present || s.hits < 8 || s.snrDb < 14.0 || !s.identified.empty()) { continue; }

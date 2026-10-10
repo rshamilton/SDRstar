@@ -171,6 +171,8 @@ private:
     sdrstar::ProbeProgress lastProbe_;
     std::map<long long, StoredResult> results_;
     std::map<long long, double> noClaimUntil_;   // auto-probe cooldown per frequency bucket
+    std::map<long long, int> noClaimCount_;      // how many times in a row a bucket was probed without a claim (back-off)
+    std::map<long long, double> bucketSeenSec_;  // last time a tracked signal was on this bucket (to forget stale cooldowns)
     double lastAutoProbeSec_ = 0;
     double lastAutoScanSec_ = 0;
     std::vector<std::string> notes_;
