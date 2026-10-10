@@ -5,6 +5,7 @@
 //   SDRSTAR_RTL433   + SDRSTAR_ISM_CU8    (250 kS/s cu8 capture of an ISM sensor, e.g. rtl_433_tests nexus/03)
 #include <chrono>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <thread>
 
@@ -44,6 +45,49 @@ TEST(missing_tool_fails_cleanly) {
     CHECK(!d.startProcess(*findHelperSpec("pager"), "/nonexistent/multimon-ng", 929.5e6, err));
 }
 
+// A helper runs in a private directory with a private HOME, whatever the app's own environment is.
+TEST(helpers_get_a_private_working_directory_and_home) {
+    char tmpl[] = "/tmp/sdrstar-helper-XXXXXX";
+    const char* base = mkdtemp(tmpl);
+    CHECK(base != nullptr);
+    if (!base) { return; }
+    std::string dir = std::string(base) + "/work";
+    HelperSpec spec;
+    spec.id = "probe";
+    spec.exeName = "env";
+    spec.input = HelperSpec::Pcm22050;
+    HelperDecoder d;
+    d.setWorkDir(dir);
+    std::string err;
+    CHECK(d.startProcess(spec, "/usr/bin/env", 0, err));
+    auto t0 = std::chrono::steady_clock::now();
+    while (d.running() && std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() < 5.0) { std::this_thread::sleep_for(std::chrono::milliseconds(20)); }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    bool home = false, cfg = false;
+    for (auto& l : d.rawLines()) {
+        if (l == "HOME=" + dir) { home = true; }
+        if (l == "XDG_CONFIG_HOME=" + dir + "/config") { cfg = true; }
+    }
+    CHECK(home);
+    CHECK(cfg);
+    d.stop();
+    HelperDecoder p2;
+    p2.setWorkDir(dir);
+    spec.exeName = "pwd";
+    CHECK(p2.startProcess(spec, "/bin/pwd", 0, err));
+    t0 = std::chrono::steady_clock::now();
+    while (p2.running() && std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() < 5.0) { std::this_thread::sleep_for(std::chrono::milliseconds(20)); }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    auto lines = p2.rawLines();
+    CHECK(!lines.empty());
+    if (!lines.empty()) {
+        std::error_code ec;
+        CHECK_EQ(std::filesystem::canonical(lines[0], ec).string(), std::filesystem::canonical(dir, ec).string());
+    }
+    p2.stop();
+    std::filesystem::remove_all(base);
+}
+
 TEST(multimon_decodes_pager_audio_through_the_48k_to_22k_path) {
     const char* tool = std::getenv("SDRSTAR_MULTIMON");
     const char* raw = std::getenv("SDRSTAR_PAGER_RAW");
@@ -74,6 +118,38 @@ TEST(multimon_decodes_pager_audio_through_the_48k_to_22k_path) {
     CHECK(pager);
     d.stop();
 }
+
+// Synthetic AFSK signals (tools/gen_afsk_samples.py): proves the APRS / EAS wiring and arguments end to end.
+static bool decodesSynthetic(const char* specId, const char* file, const char* expect) {
+    const char* tool = std::getenv("SDRSTAR_MULTIMON");
+    const char* dir = std::getenv("SDRSTAR_AFSK_DIR");
+    if (!tool || !dir) { return true; }   // skipped
+    std::vector<uint8_t> bytes = slurp((std::string(dir) + "/" + file).c_str());
+    if (bytes.size() < 20000) { return false; }
+    std::vector<int16_t> a22((int16_t*)bytes.data(), (int16_t*)bytes.data() + bytes.size() / 2);
+    PolyphaseResampler up(22050, 48000);
+    std::vector<int16_t> a48;
+    up.process(a22.data(), a22.size(), a48);
+    HelperDecoder d;
+    std::string err;
+    if (!d.startProcess(*findHelperSpec(specId), tool, 0, err)) { return false; }
+    for (size_t i = 0; i < a48.size(); i += 4800) {
+        d.feedPcm48k(a48.data() + i, std::min<size_t>(4800, a48.size() - i));
+        std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    }
+    bool found = false;
+    auto t0 = std::chrono::steady_clock::now();
+    while (!found && std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() < 10.0) {
+        for (auto& l : d.rawLines()) { if (l.find(expect) != std::string::npos) { found = true; } }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    if (found) { std::printf("  decoded: %s\n", d.lines(1).empty() ? "" : d.lines(1)[0].text.c_str()); }
+    d.stop();
+    return found;
+}
+
+TEST(aprs_packet_is_decoded_through_the_helper_path) { CHECK(decodesSynthetic("aprs", "aprs.raw", "APRS: N0CALL-9>APRS,WIDE1-1:!4903.50N/07201.75W")); }
+TEST(eas_alert_header_is_decoded_through_the_helper_path) { CHECK(decodesSynthetic("eas", "eas.raw", "EAS: ZCZC-WXR-RWT-012057")); }
 
 TEST(rtl433_decodes_an_ism_sensor_from_float_iq_on_stdin) {
     const char* tool = std::getenv("SDRSTAR_RTL433");

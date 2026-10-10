@@ -455,6 +455,7 @@ void SmartEngine::startHelper(const std::string& id, double freqHz) {
     }
     stopJob();
     std::string err;
+    helper_.setWorkDir(root_ + "/sdrstar_work/helper-" + id);
     if (!helper_.start(&host_, *sp, exe, freqHz, err)) {
         addNote("Could not start " + sp->title + ": " + err);
         return;

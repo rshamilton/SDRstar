@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 
 #include "nlohmann/json.hpp"
 
@@ -148,6 +149,18 @@ bool HelperDecoder::startProcess(const HelperSpec& spec, const std::string& exeP
     }
     o.captureStdout = true;
     o.captureStderr = true;
+    if (!workDir_.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(workDir_ + "/config", ec);
+        std::filesystem::create_directories(workDir_ + "/cache", ec);
+        std::filesystem::create_directories(workDir_ + "/data", ec);
+        o.cwd = workDir_;
+        o.env["HOME"] = workDir_;
+        o.env["XDG_CONFIG_HOME"] = workDir_ + "/config";
+        o.env["XDG_CACHE_HOME"] = workDir_ + "/cache";
+        o.env["XDG_DATA_HOME"] = workDir_ + "/data";
+        o.env["NO_COLOR"] = "1";
+    }
     proc_ = std::make_unique<Subprocess>();
     proc_->setStdoutCallback([this](const uint8_t* d, size_t n) { onStdout(d, n); });
     proc_->setStderrLineCallback([this](const std::string& l) {

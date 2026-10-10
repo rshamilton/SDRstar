@@ -54,6 +54,10 @@ public:
     HelperDecoder(const HelperDecoder&) = delete;
     HelperDecoder& operator=(const HelperDecoder&) = delete;
 
+    // Private working directory + HOME for the helper (created if missing), so it cannot read or write the user's files
+    // or pick up a stray config file (rtl_433 reads rtl_433.conf from its working directory and ~/.config).
+    void setWorkDir(const std::string& dir) { workDir_ = dir; }
+
     // Process only (no radio): feed with feedPcm48k() / feedIq().  Used by tests and by the probe fan-out.
     bool startProcess(const HelperSpec& spec, const std::string& exePath, double freqHz, std::string& error);
     // Process + hidden channel on a radio host.
@@ -77,6 +81,7 @@ private:
     void onLine(const std::string& line);
 
     HelperSpec spec_;
+    std::string workDir_;
     double freqHz_ = 0;
     std::unique_ptr<Subprocess> proc_;
     BoundedWriter writer_;
