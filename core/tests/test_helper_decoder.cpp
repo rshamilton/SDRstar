@@ -25,6 +25,7 @@ TEST(summaries_are_readable) {
     CHECK_CONTAINS(s, "temperature_C=29.4");
     CHECK_CONTAINS(s, "humidity=30");
     CHECK(s.find("time") == std::string::npos);
+    CHECK(s.find("id=201") < s.find("temperature_C"));   // the sensor's own field order is kept
     CHECK(s.find("29.400") == std::string::npos);
 }
 

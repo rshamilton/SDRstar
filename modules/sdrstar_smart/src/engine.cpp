@@ -175,7 +175,7 @@ void SmartEngine::updateCursor(double now) {
     if (gui::waterfall.selectedVFO != "") {
         auto it = gui::waterfall.vfos.find(gui::waterfall.selectedVFO);
         if (it != gui::waterfall.vfos.end()) {
-            abs = gui::waterfall.getCenterFrequency() + it->second->generalOffset;
+            abs = gui::waterfall.getCenterFrequency() + it->second->centerOffset;   // the true centre, whatever the VFO reference (LSB/USB/RAW)
             bw = it->second->bandwidth;
             name = it->first;
             valid = true;
@@ -197,12 +197,12 @@ bool SmartEngine::nearestSignal(double freqHz, double bwHz, DetectedSignal& out)
     const DetectedSignal* best = nullptr;
     double bestScore = 1e18;
     for (const auto& s : det_.signals()) {
-        if (!s.present && s.identified.empty()) { continue; }
+        if (!s.present && s.identified.empty() && s.hits < 3) { continue; }   // bursty signals stay selectable between bursts
         const double d = std::fabs(s.freqHz - freqHz);
         if (d > std::max(reach, s.bwHz / 2.0)) { continue; }
         if (s.snrDb < settings_.sensitivityDb + 1.0) { continue; }
         // prefer close AND strong: distance in kHz minus a bonus for SNR
-        const double score = d / 1000.0 - 0.15 * s.snrDb;
+        const double score = d / 1000.0 - 0.15 * s.snrDb + 0.04 * s.bwHz / 1000.0;   // a narrow signal on the cursor beats a wide smear near it
         if (score < bestScore) {
             bestScore = score;
             best = &s;
@@ -449,9 +449,11 @@ void SmartEngine::startHelper(const std::string& id, double freqHz) {
 
 void SmartEngine::doAction(CardAction a) {
     switch (a) {
-    case ACT_HELPER_PAGER: startHelper("pager", snapFrequency(cursorFreq_, cursorBw_)); break;
-    case ACT_HELPER_APRS: startHelper("aprs", snapFrequency(cursorFreq_, cursorBw_)); break;
-    case ACT_HELPER_EAS: startHelper("eas", snapFrequency(cursorFreq_, cursorBw_)); break;
+    // Text decoders listen exactly where the user put the VFO (the detector can merge neighbouring bursts into one
+    // wide "signal", so its centre is not a safe place to listen).
+    case ACT_HELPER_PAGER: startHelper("pager", cursorFreq_); break;
+    case ACT_HELPER_APRS: startHelper("aprs", cursorFreq_); break;
+    case ACT_HELPER_EAS: startHelper("eas", cursorFreq_); break;
     case ACT_HELPER_ISM: startHelper("ism", cursorFreq_); break;
     case ACT_IDENTIFY: identifyAtCursor(); break;
     case ACT_FOLLOW:
@@ -563,7 +565,8 @@ CardModel SmartEngine::card() {
         }
         for (const auto& l : ls) {
             std::string t = l.text;
-            if (t.size() > 140) { t = t.substr(0, 137) + "..."; }
+            if (t.size() > 130) { t = t.substr(0, 127) + "..."; }
+            if (l.repeat > 1) { t += "  (x" + std::to_string(l.repeat) + ")"; }
             m.lines.push_back(t);
         }
         if (helper_.droppedBytes() > 0) { m.warning = "The decoder could not keep up; some signal was skipped."; }

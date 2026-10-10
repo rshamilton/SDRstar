@@ -348,7 +348,11 @@ void SmartUi::drawMenu() {
         if (ImGui::TreeNodeEx("Messages##sdrstar_msgs", ImGuiTreeNodeFlags_DefaultOpen)) {
             if (ls.empty()) { ImGui::TextDisabled("Nothing received yet."); }
             for (auto it = ls.rbegin(); it != ls.rend(); ++it) {
-                ImGui::TextWrapped("[%5.0fs] %s", it->tSec, it->text.c_str());
+                if (it->repeat > 1) {
+                    ImGui::TextWrapped("[%5.0fs] %s  (x%d)", it->tSec, it->text.c_str(), it->repeat);
+                } else {
+                    ImGui::TextWrapped("[%5.0fs] %s", it->tSec, it->text.c_str());
+                }
             }
             ImGui::TreePop();
         }

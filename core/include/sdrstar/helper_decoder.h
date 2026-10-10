@@ -8,6 +8,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstdio>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -40,6 +41,7 @@ struct HelperLine {
     double tSec = 0;
     std::string text;   // human-readable (rtl_433 JSON is condensed to "Model  id=..  temperature_C=..")
     std::string raw;
+    int repeat = 1;     // the same message heard again within a few seconds (sensors send 3 copies)
 };
 
 // Condense one rtl_433 JSON line into a readable one; other text is returned unchanged.
@@ -83,6 +85,8 @@ private:
     RadioHost* host_ = nullptr;
     int iqChannel_ = -1;                                 // IQ specs on a host
     std::vector<int16_t> rsBuf_;
+    FILE* trace_ = nullptr;                              // dev aid: SDRSTAR_HELPER_TRACE=<file> keeps what was fed
+    size_t traceBytes_ = 0;
 
     mutable std::mutex mtx_;
     std::vector<HelperLine> lines_;

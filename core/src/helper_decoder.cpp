@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 
 #include "nlohmann/json.hpp"
 
@@ -21,6 +22,33 @@ std::string replaceAll(std::string s, const std::string& a, const std::string& b
     return s;
 }
 }  // namespace
+
+// nlohmann::json sorts keys; rtl_433 lists the most useful fields first (id, channel, temperature ...), so recover the
+// order the sensor decoder printed them in by scanning the top level of the (already validated) JSON text.
+static std::vector<std::string> topLevelKeysInOrder(const std::string& s) {
+    std::vector<std::string> keys;
+    int depth = 0;
+    for (size_t i = 0; i < s.size(); ++i) {
+        const char c = s[i];
+        if (c == '"') {
+            std::string str;
+            size_t j = i + 1;
+            for (; j < s.size() && s[j] != '"'; ++j) {
+                if (s[j] == '\\' && j + 1 < s.size()) { ++j; }
+                str += s[j];
+            }
+            size_t k = j + 1;
+            while (k < s.size() && (s[k] == ' ' || s[k] == '\t')) { ++k; }
+            if (depth == 1 && k < s.size() && s[k] == ':') { keys.push_back(str); }
+            i = j;
+        } else if (c == '{' || c == '[') {
+            ++depth;
+        } else if (c == '}' || c == ']') {
+            --depth;
+        }
+    }
+    return keys;
+}
 
 const std::vector<HelperSpec>& helperSpecs() {
     static const std::vector<HelperSpec> v = [] {
@@ -75,11 +103,10 @@ std::string summarizeHelperLine(const std::string& line) {
     nlohmann::json j = nlohmann::json::parse(line, nullptr, false);
     if (j.is_discarded() || !j.is_object()) { return line; }
     std::string out = j.value("model", std::string("device"));
-    for (auto it = j.begin(); it != j.end(); ++it) {
-        const std::string& k = it.key();
-        if (k == "model" || k == "time" || k == "mic" || k == "protocol") { continue; }
+    for (const std::string& k : topLevelKeysInOrder(line)) {
+        if (k == "model" || k == "time" || k == "mic" || k == "protocol" || !j.contains(k)) { continue; }
         out += "  " + k + "=";
-        const auto& v = it.value();
+        const auto& v = j[k];
         if (v.is_string()) {
             out += v.get<std::string>();
         } else if (v.is_number_float()) {
@@ -138,6 +165,10 @@ bool HelperDecoder::startProcess(const HelperSpec& spec, const std::string& exeP
     } else {
         writer_.configure(262144, 2);
     }
+    if (const char* tp = std::getenv("SDRSTAR_HELPER_TRACE")) {
+        trace_ = std::fopen(tp, "wb");
+        traceBytes_ = 0;
+    }
     resampler_.reset();
     if (spec.input == HelperSpec::Pcm22050) { resampler_ = std::make_unique<PolyphaseResampler>(48000, 22050); }
     return true;
@@ -178,17 +209,29 @@ void HelperDecoder::stop() {
         proc_.reset();
     }
     writer_.setProcess(nullptr);
+    if (trace_) {
+        std::fclose(trace_);
+        trace_ = nullptr;
+    }
 }
 
 void HelperDecoder::feedPcm48k(const int16_t* pcm, size_t n) {
     if (!proc_ || !resampler_) { return; }
     rsBuf_.clear();
     resampler_->process(pcm, n, rsBuf_);
+    if (trace_ && traceBytes_ < (64u << 20)) {
+        std::fwrite(rsBuf_.data(), 2, rsBuf_.size(), trace_);
+        traceBytes_ += rsBuf_.size() * 2;
+    }
     writer_.write(rsBuf_.data(), rsBuf_.size() * 2);
 }
 
 void HelperDecoder::feedIq(const cf* iq, size_t n) {
     if (!proc_) { return; }
+    if (trace_ && traceBytes_ < (64u << 20)) {
+        std::fwrite(iq, sizeof(cf), n, trace_);
+        traceBytes_ += n * sizeof(cf);
+    }
     writer_.write(iq, n * sizeof(cf));
 }
 
@@ -216,6 +259,11 @@ void HelperDecoder::onLine(const std::string& line) {
     hl.raw = line;
     hl.text = summarizeHelperLine(line);
     std::lock_guard<std::mutex> lk(mtx_);
+    if (!lines_.empty() && lines_.back().text == hl.text && hl.tSec - lines_.back().tSec < 6.0) {
+        lines_.back().repeat++;   // a sensor's repeated copies (or a pager re-send) are one message heard several times
+        lines_.back().tSec = hl.tSec;
+        return;
+    }
     lines_.push_back(hl);
     while (lines_.size() > kMaxLines) { lines_.erase(lines_.begin()); }
     count_++;
