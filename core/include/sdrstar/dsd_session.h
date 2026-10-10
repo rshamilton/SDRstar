@@ -139,6 +139,11 @@ public:
     void ingestApiLine(const std::string& line);
     void ingestLogLine(const std::string& line);
 
+private:
+    void ingestApiLineChecked(const std::string& line);
+
+public:
+
     const Config& config() const { return cfg_; }
     int apiPort() const { return apiPort_; }
 

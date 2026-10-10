@@ -67,12 +67,17 @@ void SmartEngine::loadSettings() {
     gCfg.setPath(root_ + "/sdrstar_smart_config.json");
     gCfg.load(def);
     gCfg.acquire();
-    settings_.showLabels = gCfg.conf.value("showLabels", true);
-    settings_.autoIdentify = gCfg.conf.value("autoIdentify", true);
-    settings_.allowHop = gCfg.conf.value("allowHop", true);
-    settings_.sensitivityDb = gCfg.conf.value("sensitivityDb", 10.0);
-    settings_.channelMapPath = gCfg.conf.value("channelMapPath", std::string());
-    settings_.groupListPath = gCfg.conf.value("groupListPath", std::string());
+    try {
+        settings_.showLabels = gCfg.conf.value("showLabels", true);
+        settings_.autoIdentify = gCfg.conf.value("autoIdentify", true);
+        settings_.allowHop = gCfg.conf.value("allowHop", true);
+        settings_.sensitivityDb = gCfg.conf.value("sensitivityDb", 10.0);
+        settings_.channelMapPath = gCfg.conf.value("channelMapPath", std::string());
+        settings_.groupListPath = gCfg.conf.value("groupListPath", std::string());
+    } catch (const json::exception&) {
+        // a hand-edited settings file with a wrong type for some entry: keep the defaults rather than crash at startup
+        settings_ = EngineSettings();
+    }
     gCfg.release();
 }
 

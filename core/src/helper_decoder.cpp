@@ -24,6 +24,8 @@ std::string replaceAll(std::string s, const std::string& a, const std::string& b
 }
 }  // namespace
 
+std::string summarizeHelperLineChecked(const std::string& line);
+
 // nlohmann::json sorts keys; rtl_433 lists the most useful fields first (id, channel, temperature ...), so recover the
 // order the sensor decoder printed them in by scanning the top level of the (already validated) JSON text.
 static std::vector<std::string> topLevelKeysInOrder(const std::string& s) {
@@ -112,7 +114,39 @@ const HelperSpec* findHelperSpec(const std::string& id) {
 }
 
 std::string summarizeHelperLine(const std::string& line) {
+    // The line comes from another program: any unexpected JSON shape must degrade to "show the raw line", never throw.
+    try {
+        return summarizeHelperLineChecked(line);
+    } catch (const nlohmann::json::exception&) {
+        return line;
+    }
+}
+
+// A sensor line is a few hundred bytes of shallow JSON.  Refuse to parse anything else: the JSON library's serializer
+// recurses, so a hostile line with tens of thousands of nesting levels could overflow the stack.
+static bool plausibleSensorJson(const std::string& s) {
+    if (s.size() > 32768) { return false; }
+    int depth = 0;
+    bool inString = false;
+    for (size_t i = 0; i < s.size(); ++i) {
+        const char c = s[i];
+        if (inString) {
+            if (c == '\\') { ++i; }
+            else if (c == '"') { inString = false; }
+        } else if (c == '"') {
+            inString = true;
+        } else if (c == '{' || c == '[') {
+            if (++depth > 16) { return false; }
+        } else if (c == '}' || c == ']') {
+            --depth;
+        }
+    }
+    return true;
+}
+
+std::string summarizeHelperLineChecked(const std::string& line) {
     if (line.empty() || line[0] != '{') { return line; }
+    if (!plausibleSensorJson(line)) { return line; }
     nlohmann::json j = nlohmann::json::parse(line, nullptr, false);
     if (j.is_discarded() || !j.is_object()) { return line; }
     std::string out = j.value("model", std::string("device"));

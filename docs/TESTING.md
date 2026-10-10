@@ -7,7 +7,7 @@ not be tested here it says so.
 
 | Layer | What it proves | Where |
 | --- | --- | --- |
-| **Core unit and integration tests** (77 test cases, 618 checks, 12 programs) | The planner, rigctl bridge, process handling, signal detection, identification evidence rules, trunk follower, text decoders, resampler. The integration tests run the **real DSD-neo, multimon-ng and rtl_433** on recorded signals, with the radio replaced by a simulator. | `core/tests`, run with `ctest` (or `scripts/test_core.sh`) |
+| **Core unit and integration tests** (82 test cases, about 58,700 checks, 13 programs) | The planner, rigctl bridge, process handling, signal detection, identification evidence rules, trunk follower, text decoders, resampler. The integration tests run the **real DSD-neo, multimon-ng and rtl_433** on recorded signals, with the radio replaced by a simulator. | `core/tests`, run with `ctest` (or `scripts/test_core.sh`) |
 | **Real-air trunk following** | The follower, with the real DSD-neo, on a real recorded P25 system, with a simulated RTL-SDR window moved over the recording. | `core/tests/test_real_trunk.cpp` |
 | **Sanitizers** | No data races (ThreadSanitizer) and no memory errors (AddressSanitizer / UBSan) in the core. | `scripts/ci_tsan.sh` runs on every push; AddressSanitizer + UBSan + LeakSanitizer were run by hand over the whole suite: no reports |
 | **Safety audit** | The safety claims in [SAFETY.md](SAFETY.md) hold in the source. | `scripts/safety_audit.sh`, every push |
@@ -58,6 +58,13 @@ the 73 entries (63 verified, 8 plausible, 2 rejected), is in [`tests/samples/`](
 
 Listed because they show what the tests are good for:
 
+* **A crash on unexpected data from a helper program** (found by the fuzz tests): a sensor or telemetry line whose JSON had
+  a field of the wrong type (a number where text was expected) made the JSON library throw, and an uncaught exception on
+  a reader thread terminates the whole app. All parsing of outside data is now exception-safe, over-long decoder log lines
+  are cut before the (recursive) regular-expression matcher sees them, and absurdly deep JSON is not parsed. The fuzz
+  tests (`test_fuzz`, about 58,000 checks, deterministic) throw random, mutated, truncated, huge, deeply nested and
+  NaN / Inf input at the rigctl command parser, the decoder telemetry and log parsers, the evidence rules, the sensor-line
+  summariser, the ADS-B frame decoder and the demodulator, and are clean under AddressSanitizer / UBSan / ThreadSanitizer.
 * **Use-after-free on teardown**: a sample block delivered just after a channel was closed could reach a destroyed
   object. Invisible on Linux, crashed on macOS CI; confirmed with ThreadSanitizer (10 races before the fix, 0 after).
 * **A data race in the trunk follower** (found by running the whole suite under ThreadSanitizer).

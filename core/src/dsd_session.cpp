@@ -350,6 +350,16 @@ void DsdSession::apiLoop() {
 }
 
 void DsdSession::ingestApiLine(const std::string& line) {
+    // The telemetry comes from another program: a field of an unexpected type (a number where a string is expected)
+    // makes nlohmann throw, and an exception on a reader thread would terminate the whole app. Whatever was folded in
+    // before the bad field stays; the rest of the line is ignored.
+    try {
+        ingestApiLineChecked(line);
+    } catch (const json::exception&) {
+    }
+}
+
+void DsdSession::ingestApiLineChecked(const std::string& line) {
     json j = json::parse(line, nullptr, false);
     if (j.is_discarded() || !j.is_object()) { return; }
     std::string type = j.value("type", "");
@@ -434,7 +444,9 @@ void DsdSession::ingestApiLine(const std::string& line) {
 }
 
 void DsdSession::ingestLogLine(const std::string& raw) {
-    const std::string line = stripAnsi(raw);
+    std::string line = stripAnsi(raw);
+    // Real log lines are short.  std::regex recurses, so a multi-megabyte line could overflow the stack: cap it.
+    if (line.size() > 4096) { line.resize(4096); }
 
     static const std::regex reSync(R"(Sync:\s*\+?([A-Za-z0-9\-]+))");
     static const std::regex reNac(R"(NAC/CC:\s*([0-9A-Fa-f]+))");
