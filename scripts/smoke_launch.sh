@@ -27,12 +27,7 @@ mkdir -p "$DIST_DIR"
 : >"$LOG"
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/sdrstar-smoke.XXXXXX")"
-pids=()
-cleanup() {
-    for p in ${pids[@]+"${pids[@]}"}; do kill -KILL "$p" 2>/dev/null || true; done
-    rm -rf "$TMP"
-}
-trap cleanup EXIT
+trap 'rm -rf "$TMP"' EXIT
 
 say() {
     printf '%s\n' "$*" | tee -a "$LOG"
@@ -47,35 +42,27 @@ clean_env() {
         -u DYLD_VERSIONED_LIBRARY_PATH -u DYLD_IMAGE_SUFFIX "$@"
 }
 
-# Start the program in the background with its output appended to a file; wait N seconds; report whether it was
-# still alive; then terminate it.  Sets RUN_ALIVE=1/0 and RUN_STATUS (exit status if it ended by itself).
+# Small helper programs, compiled on the spot (the Xcode command line tools are present on every build machine).
+cc -O1 -o "$TMP/dlcheck" "$PACKAGING/dlcheck.c" 2>/dev/null || fail "could not compile dlcheck"
+cc -O1 -o "$TMP/ptyrun" "$PACKAGING/ptyrun.c" 2>/dev/null || fail "could not compile ptyrun"
+
+# run_for <seconds> <logfile> <command...>: run the program on a pseudo-terminal (so SDR++'s unflushed printf output
+# is not lost when we stop it), for at most <seconds>.  Sets RUN_ALIVE=1 if it was still running when we stopped it,
+# else RUN_ALIVE=0 and RUN_STATUS to its exit status (or "signal").  The log is cleaned of CRs and colour codes.
 run_for() {
-    local seconds=$1 out=$2 pid
+    local seconds=$1 out=$2 rc=0
     shift 2
-    clean_env "$@" >"$out" 2>&1 </dev/null &
-    pid=$!
-    pids+=("$pid")
-    local i=0
-    RUN_ALIVE=1
+    "$TMP/ptyrun" "$seconds" "$out.raw" "$(command -v env)" -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH \
+        -u DYLD_FRAMEWORK_PATH -u DYLD_INSERT_LIBRARIES "$@" || rc=$?
+    tr -d '\r' <"$out.raw" | strip_ansi >"$out"
+    RUN_ALIVE=0
     RUN_STATUS=""
-    while [ "$i" -lt "$seconds" ]; do
-        sleep 1
-        i=$((i + 1))
-        if ! kill -0 "$pid" 2>/dev/null; then
-            RUN_ALIVE=0
-            wait "$pid" 2>/dev/null && RUN_STATUS=0 || RUN_STATUS=$?
-            break
-        fi
-    done
-    if [ "$RUN_ALIVE" = 1 ]; then
-        kill -TERM "$pid" 2>/dev/null || true
-        for _ in 1 2 3 4 5; do
-            kill -0 "$pid" 2>/dev/null || break
-            sleep 1
-        done
-        kill -KILL "$pid" 2>/dev/null || true
-        wait "$pid" 2>/dev/null || true
-    fi
+    case "$rc" in
+        0) RUN_ALIVE=1 ;;
+        98) fail "the test harness (ptyrun) itself failed" ;;
+        99) RUN_STATUS=signal ;;
+        *) RUN_STATUS=$((rc - 100)) ;;
+    esac
 }
 
 BAD_PATTERN='Library not loaded|Symbol not found|dyld\[|dyld:|dlopen|image not found|Couldn.t load|isn.t a loadable module|is missing _(INFO|INIT|CREATE_INSTANCE|DELETE_INSTANCE|END)_'
@@ -87,7 +74,6 @@ say "== macOS $(sw_vers -productVersion 2>/dev/null || echo '?') $(uname -m)   w
 # ---------------------------------------------------------------------------------------------------------------
 say ""
 say "== [1/3] dlcheck: dlopen every plugin"
-cc -O1 -o "$TMP/dlcheck" "$PACKAGING/dlcheck.c" || fail "could not compile dlcheck"
 if clean_env "$TMP/dlcheck" "$APP"/Contents/Plugins/*.dylib >"$TMP/dlcheck.out" 2>&1; then
     tail -n 1 "$TMP/dlcheck.out" | tee -a "$LOG"
 else

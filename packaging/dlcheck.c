@@ -4,7 +4,7 @@
  * failure.  scripts/smoke_launch.sh uses it to prove that every SDRstar plugin and its whole library chain resolves
  * from inside the app bundle (a missing or mis-addressed dylib shows up as "Library not loaded: ...").
  *
- *   cc -o dlcheck dlcheck.c && ./dlcheck SDRstar.app/Contents/Plugins/*.dylib
+ *   cc -o dlcheck dlcheck.c, then run: dlcheck <each plugin .dylib>
  */
 #include <dlfcn.h>
 #include <stdio.h>

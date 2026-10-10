@@ -25,6 +25,11 @@ on:
 permissions:
   contents: read
 
+# "shell: bash" turns on `set -o pipefail`; without it a failing script piped into `tee` would be reported as success.
+defaults:
+  run:
+    shell: bash
+
 env:
   # Bump to throw away every cached dependency / ccache entry (e.g. after changing compiler flags).
   CACHE_VERSION: v1
