@@ -290,6 +290,14 @@ jobs:
         if: always() && steps.bundle.outcome == 'success'
         run: scripts/smoke_launch.sh "" 15 2>&1 | tee dist/logs/launch-summary-${{ matrix.arch }}.log
 
+      # build_mac.sh is what a person runs on their own Mac.  Re-running it now (nothing changed) proves the driver
+      # works end to end and is idempotent: every library/helper must report "up to date".
+      - name: "Local driver - scripts/build_mac.sh re-run must be a no-op apart from re-bundling"
+        if: matrix.arch == 'arm64'
+        run: |
+          scripts/build_mac.sh --skip-tests --no-dmg 2>&1 | tee dist/logs/build_mac-rerun-${{ matrix.arch }}.log
+          test "$(grep -c ': up to date' dist/logs/build_mac-rerun-${{ matrix.arch }}.log)" -ge 14
+
       - name: Job summary
         if: always()
         env:

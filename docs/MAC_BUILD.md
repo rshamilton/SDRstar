@@ -145,14 +145,30 @@ Because the repository is private, only people with access to it can download fr
 
 ### The launch test
 
-`smoke_launch.sh` records three levels and reports each honestly in its summary:
+`smoke_launch.sh` records three levels and reports each honestly in its summary (artifact `logs-<arch>`,
+`dist/launch-<arch>.log`):
 
-1. **plugin dlopen**: every `Plugins/*.dylib` is `dlopen`ed with `RTLD_NOW` by a tiny C program (needs no window server);
-2. **headless launch**: `sdrstar --server --addr 127.0.0.1` (SDR++'s server mode needs no GL) must stay up 15 s, log
-   `Ready, listening` and load the source plugins;
-3. **GUI launch**: the real GUI for 15 s. A CI runner may have no usable window server; then the script records
-   `GUI NOT AVAILABLE`, which is neither a pass nor a bundle failure. If the GUI does come up it must log `Ready.` and
-   load every plugin.
+1. **plugin dlopen**: `packaging/dlcheck.c` (compiled on the spot) `dlopen`s every `Plugins/*.dylib` with `RTLD_NOW` in a
+   fresh process and checks that each exports the five entry points SDR++'s module manager requires. Needs no window
+   server. This is what proves that every plugin and its whole library chain resolves from inside the bundle.
+2. **headless launch**: `sdrstar --server --addr 127.0.0.1` (SDR++'s server mode needs no OpenGL) must stay up 15 s, log
+   `Ready, listening` and load the source plugins (this really exercises librtlsdr and libusb being loaded by the app).
+3. **GUI launch**: the real GUI for 15 s. If the GUI comes up it must log `Ready.` and load every plugin. The GitHub
+   macOS runners are virtual machines without an OpenGL-capable display: GLFW reports
+   `NSGL: Failed to find a suitable pixel format` and SDR++ ends. The script records this as `GUI NOT AVAILABLE`, which is
+   neither a pass nor a bundle failure. **The GUI therefore has never been run in CI; test it on a real Mac.**
+
+SDR++ logs with `printf` and never flushes, so the apps are started through `packaging/ptyrun.c`, a ten-line pseudo-terminal
+runner (stdio is line-buffered on a terminal); otherwise a process that has to be killed leaves an empty log.
+
+### Pitfalls the pipeline already guards against
+
+* GitHub's default `run:` shell on macOS has no `pipefail`, so `script | tee log` would report success even if the script
+  failed. The workflow sets `defaults.run.shell: bash` (which enables it).
+* The integration tests print "skipped" and return success when `SDRSTAR_DSD_NEO`/`SDRSTAR_FIXTURES` are missing;
+  `test_core.sh` re-runs the DSD-neo suite and fails if anything was skipped.
+* When a core test crashes, `test_core.sh` re-runs it under `lldb` (or `gdb`) and prints the backtrace of all threads plus macOS'
+  own crash report, so a failure on a Mac you cannot touch is diagnosable from the log alone.
 
 ## 5. Bumping a pinned version
 
