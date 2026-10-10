@@ -1,137 +1,142 @@
 # SDRstar architecture
 
-SDRstar = **SDR++** (the waterfall UI you already like) + a **smart layer** that identifies signals for you,
-decodes digital ones, and follows trunked radio systems across the RTL-SDR's tuning range, packaged as a normal
+SDRstar = **SDR++** (the waterfall UI you already like) + a **smart layer** that labels signals, identifies digital
+ones, decodes them and follows trunked radio systems across the RTL-SDR's tuning range, packaged as a normal
 double-click macOS app.
 
-This page records *what* was built, *why* each part was chosen over the alternatives, and *where the limits are*.
+This page records *what* was built, *why* each part was chosen over the alternatives, how the pieces fit, and *where
+the limits are* (the measured ones, not hoped-for ones).
 
 ## 1. The decision, in one paragraph
 
-Re-implementing an SDR front end, a GPU waterfall, an RTL-SDR driver layer, audio output, and a dozen decoders from
-scratch would take months and would be untestable on a Mac I do not have. Instead SDRstar is built from parts that
-are already proven on macOS:
+Re-implementing an SDR front end, a GPU waterfall, an RTL-SDR driver layer, audio output and a dozen decoders from
+scratch would take months and could not be tested on a Mac that was not available. Instead SDRstar is built from parts
+that are already proven on macOS, and only the part that does not exist anywhere (the "smart" layer) is new:
 
 | Job | Component | Why this one |
 | --- | --- | --- |
-| GUI, waterfall, VFO dragging, demodulators (WFM/NFM/AM/SSB/CW/RAW), recorder, bookmarks, scanner, RTL-SDR source, audio sinks | **SDR++ 1.3.0** (GPL-3.0), pinned to one commit | It *is* the interface you asked for; upstream CI already ships macOS Intel + Apple Silicon builds; it has a clean module API (`createVFO`, `iqFrontEnd.addVFO`, `sourceManager.tune`, waterfall draw/input hooks). |
-| Digital voice + control-channel decoding and trunk logic: P25 Phase 1/2, DMR (Tier II/III, Connect Plus, Capacity Plus, XPT), NXDN, dPMR, D-STAR, YSF, M17, EDACS, ProVoice | **DSD-neo** (GPL-3.0), run as a child process | Actively maintained successor of DSD-FME; ships a JSON telemetry/control API, accepts PCM on stdin, has macOS release builds, and a large regression suite of real captures. |
-| IMBE/AMBE vocoder used by DSD-neo | **mbelib-neo** | Required by DSD-neo (see patent note in `THIRD_PARTY.md`). |
-| Pagers (POCSAG/FLEX), AFSK/APRS, DTMF, EAS | **multimon-ng** | Standard tool. |
-| 433/315/868/915 MHz ISM sensors, TPMS, weather stations | **rtl_433** | Standard tool, 200+ device decoders. |
-| USB driver for the RTL-SDR Blog V4 | **librtlsdr 2.0.3** (osmocom) | Native V4/V4L support (HF upconverter handling, bias-tee GPIO). |
-| Everything "smart": signal finder, classifier, popup, trunk-follow planner, status explanations | **`sdrstar_core` + `sdrstar_smart` module** (this repo) | The part that does not exist anywhere else. |
+| GUI, waterfall, VFO dragging, demodulators (WFM/NFM/AM/SSB/CW/RAW), recorder, bookmarks, scanner, RTL-SDR source, audio sinks | **SDR++ 1.3.0** (GPL-3.0), pinned to one commit | It *is* the interface you asked for; upstream already ships macOS Intel + Apple Silicon builds; it has a clean module API (`iqFrontEnd.addVFO`, source manager, waterfall draw/input hooks). |
+| Digital voice and control-channel decoding, trunk logic: P25 Phase 1/2, DMR (Tier II/III, Connect Plus, Capacity Plus), NXDN, dPMR, D-STAR, YSF, M17, EDACS, ProVoice | **DSD-neo** (GPL-3.0), a child process | Actively maintained successor of DSD-FME; takes PCM on stdin, has a JSON telemetry API, a rigctl-based trunk-follow protocol, a large regression suite of real captures, and macOS support. |
+| IMBE/AMBE vocoder used by DSD-neo | **mbelib-neo** | Required by DSD-neo (patent note in `THIRD_PARTY.md`). |
+| Pagers (POCSAG / FLEX), APRS (AFSK1200), weather alerts (EAS) | **multimon-ng** 1.6.2 | Standard tool. |
+| 433 / 868 / 915 MHz sensors, TPMS, weather stations, utility meters | **rtl_433** 25.12 | Standard tool, 200+ device decoders. |
+| USB driver for the RTL-SDR Blog V4 | **librtlsdr 2.0.3** | Native V4 / V4L support (HF upconverter handling, bias-tee GPIO). |
+| Everything "smart": signal finder, classifier, cards, trunk-follow planner, status explanations | **`sdrstar_core`** (pure C++ library, `core/`) and the **`sdrstar_smart`** SDR++ module (`modules/sdrstar_smart`) | The part that does not exist anywhere else. |
 
-SDRstar changes SDR++ in exactly two ways: a pinned set of small **patches** (`patches/sdrpp/`, currently the
-RTL-SDR bias-tee safety lock) and one added **module** (`modules/sdrstar_smart`). `scripts/prepare_sdrpp.sh` fetches
-SDR++ at the pinned SHA, applies the patches and drops the module in. Nothing is forked or vendored.
+SDRstar changes SDR++ in exactly two ways: a small pinned set of **patches** (`patches/sdrpp/`) and one added
+**module**. `scripts/prepare_sdrpp.sh` fetches SDR++ at the pinned commit, applies the patches and drops the module in.
+Nothing is forked or vendored. All pins live in `versions.env`.
 
-## 2. Process layout
+Patches: `0001` bias-tee safety lock; `0002` a "mute" hook so the radio can be silenced while decoded voice plays;
+`0003` window title and credits; `0004` defaults (settings folder `~/Library/Application Support/SDRstar`, the SDRstar
+panel, RTL-SDR as the default source, the "SDRstar Voice" audio stream).
+
+## 2. Process layout and data flow
 
 ```
 SDRstar.app
  └─ Contents/
-     ├─ MacOS/sdrstar                 SDR++ main program (GUI, DSP graph)
-     ├─ Frameworks/*.dylib            libsdrpp_core, librtlsdr, libusb, fftw, volk, portaudio, glfw, zstd ...
-     ├─ Plugins/*.dylib               SDR++ modules + sdrstar_smart.dylib
-     └─ Resources/helpers/            dsd-neo, multimon-ng, rtl_433 (+ their dylibs)  -- child processes
+     ├─ MacOS/sdrstar              SDR++ main program (GUI, DSP graph)
+     ├─ Frameworks/*.dylib         libsdrpp_core, librtlsdr, libusb, fftw, volk, portaudio, glfw, zstd, ...
+     ├─ Plugins/*.dylib            SDR++ modules + sdrstar_smart.dylib
+     └─ Resources/helpers/         dsd-neo, multimon-ng, rtl_433 (+ their dylibs): child processes
 ```
 
 ```
- RTL-SDR V4 ──USB──▶ SDR++ source ──▶ IQ front end ──┬─▶ FFT ──▶ waterfall ◀── overlay + popup  (sdrstar_smart)
-  (librtlsdr)                                         ├─▶ user's VFO ──▶ Radio module ──▶ audio (analog listening)
-                                                      └─▶ hidden channels (iqFrontEnd.addVFO)  ◀── sdrstar_smart
-                                                              │  FM discriminator, 48 kHz, s16
-                                                              ▼
-                                      ┌──────────── child processes (loopback only) ─────────────┐
-                                      │ dsd-neo   stdin=PCM  stdout=decoded voice  --api JSON     │
-                                      │           rigctl client ◀──▶ RigctlBridge (retune requests)│
-                                      │ multimon-ng / rtl_433                                      │
-                                      └───────────────────────────────────────────────────────────┘
+ RTL-SDR V4 ─USB─▶ SDR++ source ─▶ IQ front end ─┬─▶ FFT ─▶ waterfall  ◀── labels + card   (sdrstar_smart draws on it)
+  (librtlsdr)                                     ├─▶ your VFO ─▶ Radio module ─▶ audio (analog listening)
+                                                  ├─▶ own raw-IQ FFT tap ─▶ SignalDetector       (sdrstar_smart)
+                                                  └─▶ hidden channels (iqFrontEnd.addVFO)        (sdrstar_smart)
+                                                        │ FM discriminator: 48 kHz s16 PCM  /  250 kS/s complex float
+                                                        ▼
+                               child processes, loopback only, private working directory each
+                               ┌ dsd-neo      stdin = PCM, stdout = decoded voice, --api JSON, rigctl client ┐
+                               │              ▲ rigctl "F <freq>" = retune request                            │
+                               │   RigctlBridge ─▶ WindowPlanner ─▶ move channel / retune dongle / hop / refuse│
+                               └ multimon-ng (22.05 kHz PCM)   rtl_433 (complex float IQ) ───────────────────┘
 ```
 
-Why child processes: a crashing or hanging decoder can never take the GUI down; licences stay cleanly separate;
-each tool can be upgraded independently; and stdin-EOF guarantees decoders die with the app.
+*Why child processes:* a crashing or hanging decoder can never take the GUI down; licences stay cleanly separated;
+each tool can be upgraded independently; and end-of-input on stdin guarantees decoders die with the app.
 
-*Hidden channels* are `iqFrontEnd.addVFO` digital down-converters: they exist inside the DSP graph without drawing an
+*Hidden channels* are `iqFrontEnd.addVFO` digital down-converters: they live inside the DSP graph without drawing an
 extra VFO box on the waterfall, so probes and the trunk follower never disturb your own cursor.
+
+*The spectrum tap is our own.* SDR++'s FFT data is already zoomed for display, so SDRstar takes the raw IQ and runs
+its own FFTs (several per snapshot, 8 snapshots a second) for detection.
+
+The hardware is reached only through an abstraction (`RadioHost`: window description, retune, open/move/close a
+channel). In the app it is implemented on SDR++ (`SdrppRadioHost`); in the tests by simulators that replay recordings.
+That is what makes the whole trunk-following loop testable with the real decoders and no radio.
 
 ## 3. How "smart detection" works
 
-Four layers, cheapest first, each one only runs when the previous one found something worth looking at:
+Cheapest first; each layer only runs when the previous one found something worth looking at.
 
-1. **Spectrum scan (every frame, tiny CPU).** Robust noise-floor estimate, peak/occupied-bandwidth detection with
-   hysteresis, per-signal tracking (how long, how bursty). Plus a **band-plan hint** (87.5-108 MHz is broadcast FM,
-   118-137 MHz is AM airband, 851-869 MHz is US public-safety trunking ...). Produces labels drawn on the waterfall.
-2. **Channel fingerprint (when the cursor rests on a signal, ~1 s).** A hidden 48 kHz channel is opened on the
-   signal. From its IQ we measure bandwidth, FM-discriminator level histogram (2 vs 4 deviation levels), and symbol
-   rate (cyclostationary line). That separates analog voice, AM, 2-level FSK data, 4-level digital voice, and
-   TDMA-style burst signals and narrows the candidate protocols.
-3. **Protocol confirmation (a few seconds).** DSD-neo is started with the *specific* preset(s) the fingerprint
-   suggests (not its slow general auto-hunt, which was measured to flip between false protocols), and its JSON
-   telemetry is read: decoded frames, NAC/colour code, WACN/system/site, control-channel FEC statistics.
-4. **Evidence thresholds.** A protocol is only *claimed* once enough FEC-verified frames were decoded; before that the
-   popup says "probing ...". This is deliberate: the measured first guess of DSD-neo's auto mode was wrong for D-STAR,
-   dPMR, and CQPSK voice fixtures.
+1. **Spectrum detector** (every snapshot, tiny CPU). Noise floor, runs of bins above floor + margin (default 10 dB),
+   occupied bandwidth at -25 dB, power-weighted centre, tracking by absolute frequency (survives window moves), how
+   steady or bursty each signal is, guards against the DC spike and the unusable band edges. It produces **labels that
+   state facts only** ("12.5 kHz, steady", "wide FM-size signal"). Speculation ("could be a control channel") is kept in
+   a separate note, never the label. A **band plan** (what each band is normally used for) adds hints.
+2. **Candidate choice.** From the occupied width and band: 6.25 kHz-class signals try NXDN48 and dPMR; wider ones try P25
+   Phase 1/2, DMR, NXDN96 and, depending on who uses the band, D-STAR / YSF / M17 (amateur-only) or EDACS / ProVoice
+   (land-mobile-only).
+3. **Parallel probe** (about 5 s, early exit on a confident claim). A hidden channel is opened on the signal; its
+   FM-discriminator audio is fanned out to one DSD-neo process per candidate, each started with its *specific* preset.
+4. **Evidence rules.** A protocol is **claimed** only when enough *error-checked* output was produced (for example P25:
+   at least 3 sync + a NAC; DMR: a colour code; D-STAR: a callsign). The rules were derived from a measured confusion
+   matrix (every fixture against every decoder; `core/tests/test_probe_evidence.cpp`). The best claim wins; a signal is
+   declared *trunked* when a P25 control channel's checked messages cross a threshold or DMR/NXDN/EDACS control traffic
+   is decoded.
 
-*Trunked* is declared when a P25 control channel's FEC-verified TSBK count crosses a threshold (and it announces
-its own frequency/site), or when DMR/NXDN/EDACS control-channel messages are decoded.
+Two things that were tried and **rejected** because measurement said no: DSD-neo's own auto-detect mode (it guessed
+wrong for D-STAR, dPMR and CQPSK voice) and signal-shape tricks (spectral flatness, baud-rate lines) to tell digital from
+analog (they do not separate them on real recordings). That is why SDRstar tests specific decoders and trusts only
+decoded evidence.
+
+Background identification is polite: one job at a time, only steady narrow signals, skip a weak signal sitting next to a
+much stronger one (probably its splatter), and signals that never turn out to be digital are re-tested ever more rarely
+(1.5 min, 4.5 min, 13 min, then hourly).
 
 ## 4. How trunk following works (and where the limits are)
 
-The decoder (DSD-neo) owns the trunking *state machine* (grants, hang time, return to control channel) — it is the
-most battle-tested part and handles P25 Phase 1/2, DMR Tier III / Connect Plus / Capacity Plus, NXDN and EDACS.
-SDRstar owns the *radio*:
+The decoder (DSD-neo) owns the trunking *state machine* (grants, hang time, return to the control channel). SDRstar owns
+the *radio*:
 
-1. User drags the cursor onto a control channel; the popup says "P25 control channel ... **Follow trunked system**".
-2. SDRstar opens a hidden channel on it, starts DSD-neo with `-T`, and starts a loopback **rigctl bridge**.
-3. When a call is granted, DSD-neo sends `F <voice-frequency>` over rigctl. The bridge hands that to the
-   **window planner** (`core/src/window_planner.cpp`, pure logic, unit-tested):
-   * voice channel already inside the capture window  -> just move the hidden channel (instant, no hardware retune);
-   * not inside, but control + voice fit together in ~1.9 MHz  -> retune the dongle *once* so both stay visible;
-   * too far apart for one RTL-SDR (~2.4 MS/s, ~80 % usable)  -> **hop**: retune to the voice channel for the call
-     (the control channel is lost meanwhile, and the UI says so), then return when the call ends; or, if the user
-     disabled hopping, **refuse with a plain-English reason** ("voice channel is 5.2 MHz from the control channel;
-     this receiver can only see 1.92 MHz at once");
-   * outside what the hardware can tune (above 1.766 GHz, below 0.5 MHz)  -> refuse and say so.
-4. Decoded voice comes back on DSD-neo's stdout and is played through SDR++'s normal audio sink (volume slider, device
-   selection all work).
+1. The user rests the cursor on a control channel; the card says "P25 control channel ... **Follow trunked system**".
+2. SDRstar opens a hidden channel on it, starts DSD-neo in trunking mode, and starts a **loopback rigctl bridge**.
+3. When a call is granted, DSD-neo sends `F <voice-frequency>` over rigctl. The bridge hands that to the **window
+   planner** (`core/src/window_planner.cpp`, pure logic):
+   * voice channel already inside the capture window: just move the hidden channel (instant, nothing missed);
+   * not inside, but control + voice fit together in about 1.9 MHz: retune the dongle **once** so both stay visible;
+   * too far apart for one RTL-SDR (about 2.4 MS/s, 80 % of it usable): **hop**: retune to the voice channel for the call
+     (the control channel is lost meanwhile, and the UI says so), then return when the call ends; or, if hopping is off,
+     **refuse with a plain-English reason** ("... is out of bandwidth (N MHz from the control channel)");
+   * outside what the hardware can tune (below 0.5 MHz or above 1.766 GHz): refuse and say so;
+   * with a recording as the source (cannot retune): say what range the recording covers.
+4. Decoded voice comes back on DSD-neo's stdout and plays through an SDR++ audio stream ("SDRstar Voice"), so volume
+   and output device work as usual; the radio is muted meanwhile.
 
-Honest limits: one RTL-SDR is one tuner, so *simultaneous* calls on far-apart frequencies cannot both be heard, and
-control-channel traffic is missed during a hop. Encrypted calls are reported as encrypted and not decoded.
-DMR/NXDN/EDACS systems do not broadcast their frequency plan the way P25 does: the user supplies a channel list
-(CSV) for those (P25 plans are learned automatically from the control channel).
+A retune is budgeted at about a quarter of a second (not yet measured on real hardware); the channel is muted across the gap so no junk reaches the decoder.
 
-## 5. Hardware safety design
+**Limits.** One RTL-SDR is one tuner, so simultaneous calls on far-apart frequencies cannot both be heard, and control
+traffic is missed during a hop. Encrypted calls are reported, not decoded. P25 announces its frequency plan; DMR, NXDN and
+EDACS need a channel list (CSV) from the user. NXDN96 and dPMR decode weakly through the audio path.
 
-* RTL-SDR is a **receive-only** device: SDRstar contains no transmit path of any kind.
-* **Bias tee** (4.5 V on the antenna port) is OFF at every launch, is never saved as ON, needs an explicit
-  acknowledgement tick each time, and is switched off whenever the dongle is released (patch 0001).
-* SDRstar never writes the dongle's EEPROM, flashes firmware, or touches any USB device other than via SDR++'s
-  RTL-SDR source.
-* Child decoders are built **without** their own RTL-SDR/Soapy backends, so they *cannot* grab or reconfigure the
-  USB device; they only ever receive PCM through a pipe.
-* All sockets bind to `127.0.0.1` only; the decoder API is token-protected with a random per-session token file
-  (mode 0600); helper processes get a private working directory and environment.
-* CPU: decoders are bounded (one process per active channel, PCM feeding drops data rather than blocking when a
-  decoder falls behind) so a runaway cannot freeze the UI or overheat the machine by queueing unbounded work.
-* The DSP never writes to disk unless the user starts a recording.
+## 5. Text decoders
 
-(Software cannot protect a receiver from physical overload — e.g. an antenna sitting next to a transmitter — so
-`docs/SAFETY.md` also lists the real-world precautions.)
+`HelperDecoder` (`core/src/helper_decoder.cpp`) runs a text-output tool on a hidden channel; each tool is a table entry
+(`helperSpecs()`): pagers, APRS and EAS use multimon-ng fed 22.05 kHz audio (48 kHz discriminator output through a
+polyphase resampler); ISM sensors use rtl_433 fed a 250 kS/s complex-float channel (`-r cf32:-`). Repeated copies of a
+message are collapsed into one line with a count. Each helper runs in a private working directory with its own HOME.
+Adding a decoder is a new entry plus (if needed) a card button.
 
-## 6. Testing strategy (no hardware needed)
+## 6. Safety and testing
 
-* `core/tests` — unit tests for the planner, rigctl protocol, process management, telemetry parsing and the signal
-  analysis code, plus **integration tests that run the real DSD-neo binary** on real recorded fixtures.
-* Fixtures come from DSD-neo's own regression suite (2-s 48 kHz I/Q captures of P25 C4FM/CQPSK/Phase 2, DMR Tier III,
-  NXDN, dPMR, D-STAR, YSF, M17, EDACS, ProVoice and analog NFM/AM, each already asserted by that project) plus
-  public sample recordings found and *independently verified* (spectrum viewed, decoded by a reference decoder)
-  before use (`docs/TESTING.md` lists each and what was checked).
-* GUI testing: SDR++ is run under a virtual display with software OpenGL, fed a recorded wideband file through its
-  File Source, and screenshotted.
-* macOS: the GitHub Actions workflow builds the real `.app` for Apple Silicon and Intel, checks that no library
-  outside the bundle is referenced, ad-hoc signs it, launches it, and produces the `.dmg`.
+Both have their own pages: [SAFETY.md](SAFETY.md) (every protection, how it was checked, the physical precautions
+software cannot provide) and [TESTING.md](TESTING.md) (what was tested with what, the bugs that testing found, the
+measured weak spots, and what could not be tested here).
 
-What could **not** be tested here and is flagged in the README: the live RTL-SDR hardware path on a real Mac (USB
-streaming, tuner retune latency, audio device), because no hardware is available in the build environment.
+Short version of the open item: the live RTL-SDR path on a real Mac (USB streaming, real retune latency, audio device,
+the GUI's OpenGL window on a real display) has not been exercised, because the build environment had no radio and no
+Mac. Everything around it has.

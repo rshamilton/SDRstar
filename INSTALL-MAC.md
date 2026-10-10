@@ -19,30 +19,35 @@ way to build a genuine Mac app without a Mac in the loop). Your repository is `r
 
 ### Option A: download it from GitHub (recommended)
 
-**If a build already exists**
+A first build has already been made and published, so the quickest route is a download.
 
-1. Open <https://github.com/rshamilton/SDRstar/releases> (log in to GitHub: the repository is private).
-2. Open the pre-release called **nightly**.
-3. Under **Assets**, click the `.dmg` for your Mac (see section 1). It downloads like any file.
+**Download the existing build**
 
-**If there is no release yet, ask GitHub to build one**
+1. Open <https://github.com/rshamilton/SDRstar/releases/tag/nightly> (log in to GitHub: the repository is private).
+2. Under **Assets**, click the `.dmg` for your Mac (see section 1): `SDRstar-AppleSilicon.dmg` (about 10 MB) or
+   `SDRstar-Intel.dmg` (about 12 MB). Each has a `.sha256` file next to it if you want to check the download
+   (`shasum -a 256 SDRstar-AppleSilicon.dmg` in Terminal should print the same number).
 
-1. Open <https://github.com/rshamilton/SDRstar/actions>, click the workflow named **build** in the left list.
-2. Click **Run workflow** (right side), choose the branch `claude/awesome-newton-b30toa`, and under the macOS option
-   choose **arm64** if you have an Apple Silicon Mac, **x86_64** for Intel (only one: see the cost note below),
-   then click the green **Run workflow** button.
-3. Wait. The *first* build compiles everything from source and is slow (roughly one to two hours); later builds reuse
-   a cache and take far less. Refresh the page; a green tick means done.
-4. Click the finished run, scroll to **Artifacts**, download **`dmg-arm64`** (or `dmg-x86_64`). It arrives as a `.zip`;
-   double-click it to get the `.dmg` inside.
+**Get a fresh build of the latest code**
 
-> **A cost note, because the repository is private.** GitHub gives a private repository a monthly allowance of
-> build minutes (2,000 on the Free plan: check *Settings → Billing and plans*), and counts every **macOS** minute as
-> **ten**. One from-scratch Mac build can therefore use a large part of a month's allowance, which is why SDRstar's
-> workflow only builds for macOS when you ask it to (or when a commit message contains `[mac]`) and builds only one
-> architecture if you choose one. If the allowance runs out, GitHub stops the build and says so; nothing is charged
-> unless you have set a spending limit above zero. Two ways around it: build on your own Mac (Option B, free), or
-> make the repository public (GitHub does not charge for macOS minutes on public repositories).
+The release is rebuilt whenever a build is run for *both* kinds of Mac and passes every check. To ask for one:
+
+1. Open <https://github.com/rshamilton/SDRstar/actions> and click the workflow named **build** in the left list.
+2. Click **Run workflow** (right side), choose the branch `claude/awesome-newton-b30toa`, leave **both** (or pick just
+   `arm64` for an Apple Silicon Mac / `x86_64` for Intel), and click the green **Run workflow** button.
+3. Wait for the green tick (about 6 minutes when GitHub's cache is warm, about 25 when it is not). Then either
+   download the refreshed files from the **nightly** release page, or open the finished run and take **`dmg-arm64`** /
+   **`dmg-x86_64`** under *Artifacts* (a `.zip`: double-click it to get the `.dmg`).
+
+> **A cost note, because the repository is private.** GitHub gives a private repository a monthly allowance of build
+> minutes (2,000 on the Free plan: check *Settings → Billing and plans*) and counts every **macOS** minute as **ten**.
+> Measured on the first builds: both Macs from scratch take about 25 minutes of macOS time (billed as roughly 250
+> minutes); a re-run with a warm cache takes about 6 (roughly 60 billed). So a handful of builds a month fits the Free
+> allowance comfortably, but do not run them in a loop. That is why the workflow only builds for macOS when you ask
+> (the **Run workflow** button, or a commit message containing `[mac]`). If the allowance ever runs out, GitHub stops the
+> build and says so; nothing is charged unless you have set a spending limit above zero. Two ways around it: build on
+> your own Mac (Option B, free), or make the repository public (GitHub does not charge for macOS minutes on public
+> repositories).
 
 ### Option B: build it on your own Mac
 

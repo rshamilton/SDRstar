@@ -1,0 +1,5 @@
+Locally built reference decoders used to verify the samples (no SDR drivers; x86_64 Ubuntu 24.04, built 2026-10-10):
+  rtl_433      merbanan/rtl_433 @ d511d8a2f8ea5bd790491cc31fa2a799ff46b7d8   cmake -DENABLE_RTLSDR=OFF -DENABLE_SOAPYSDR=OFF
+  multimon-ng  EliasOenal/multimon-ng @ 0722194b7739748e49f18ac1fc76f236d4ca390d (1.6.2)   cmake defaults (needs raw s16le 22050 Hz input: use ffmpeg ... -f s16le -ac 1 -ar 22050 - | multimon-ng -t raw -a POCSAG1200 -f alpha -)
+  dump1090     antirez/dump1090 @ efe64db3c6ba1520291331628a33c1e208e851a6, compiled with a stub rtl-sdr.h (file replay only):  ./dump1090 --ifile modes1.bin [--raw|--stats]
+Binaries are built from public source, never from downloaded recordings.  dsd-neo used for P25/DMR verification: /home/user/ref/dsd-neo/build/rel/apps/dsd-cli/dsd-neo --iq-replay X.iq.json

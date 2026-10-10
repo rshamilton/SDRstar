@@ -1,0 +1,11 @@
+{
+ "schema": "sdrstar-test-samples/1",
+ "generated_utc": "2026-10-10",
+ "notes": "center_freq_hz is null when unknown. sample_rate_hz is the TRUE rate (it may differ from a bogus WAV header: see wav_header_rate_hz). contents[].offset_hz is relative to the centre frequency. iq_swap=false means the loader must NOT swap I/Q (WAV: ch0=I, ch1=Q). status: verified | plausible | rejected. Tools: tools/inspect_iq.py (load_entry), tools/make_composite.py.",
+ "tools": {
+  "rtl_433": "d511d8a2f8ea5bd790491cc31fa2a799ff46b7d8 (built locally, no SDR drivers)",
+  "multimon-ng": "0722194b7739748e49f18ac1fc76f236d4ca390d (built locally) 1.6.2",
+  "dsd-neo": "v2.10.0 (782e629) /home/user/ref/dsd-neo/build/rel/apps/dsd-cli/dsd-neo --iq-replay",
+  "dump1090": "antirez efe64db built with stub rtl-sdr.h"
+ }
+}

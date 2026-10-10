@@ -1,0 +1,4279 @@
+[
+ {
+  "id": "p25_dmr_800mhz_hackrf_20msps_2s",
+  "file": "ia862_20msps_2s.cu8",
+  "source_url": "https://archive.org/download/SDR-IQ-20221126/IQ-2022_11_26.tar",
+  "source_ref": "archive.org item 'SDR-IQ-20221126' (https://archive.org/details/SDR-IQ-20221126), tar member 2022_11_26/23-19-30_862000000Hz.wav = RF64 WAV, 20 MS/s, 2 ch, 8-bit unsigned, 20 s, HackRF One per item description; fetched with HTTP range requests (member not downloaded in full)",
+  "license": "none stated (archive.org item carries no license/rights metadata; uploader 'anthony96922'); internal test input only",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": "raw bytes t=10.000 s .. 12.000 s of the WAV data (byte offset 400,000,000 .. 480,000,000 after the 80-byte RF64 header), written unchanged as raw cu8 (WAV 8-bit PCM is unsigned = cu8). Not resampled.",
+  "contents": [
+   {
+    "offset_hz": -8602300,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 control channel",
+    "notes": "853.3977 MHz measured; NAC 0x450, WACN BEE00, SYSID 0x45C, RFSS 1, site 23 (self-identifies CC chan 0x017F); continuous"
+   },
+   {
+    "offset_hz": -5289900,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 control channel",
+    "notes": "856.7101 MHz measured (CC announces itself as 856.7125 MHz = chan 0x0391); NAC 0x451, WACN BEE00, SYSID 0x45C, RFSS 1, site 21; continuous"
+   },
+   {
+    "offset_hz": -4839600,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 control channel (other system)",
+    "notes": "857.1604 MHz; NAC 0x346, WACN BEE00, SYSID 0x346 (decoded in slice A of the same window)"
+   },
+   {
+    "offset_hz": -4289200,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice/traffic",
+    "notes": "857.7108 MHz, NAC 0x451, bursty"
+   },
+   {
+    "offset_hz": -3289200,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice/traffic",
+    "notes": "858.7108 MHz, NAC 0x451/0x418, LCW adjacent-site broadcasts for SYSID 0x45C sites 22-28"
+   },
+   {
+    "offset_hz": -2539400,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice/traffic",
+    "notes": "859.4606 MHz, NAC 0x451 (channel 0x0559 -> 859.5625 is announced; this is the neighbouring 859.4625)"
+   },
+   {
+    "offset_hz": -2439300,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice/traffic",
+    "notes": "859.5607 MHz, NAC 0x451 (matches CC channel-plan grant 0x0559 = 859.5625 MHz)"
+   },
+   {
+    "offset_hz": -1657700,
+    "bandwidth_hz": 12500,
+    "kind": "DMR TDMA control-channel-like carrier",
+    "notes": "860.3423 MHz; both slots active, Color Code 8, CSBK (mostly CRC-ERR) + Short LC SLC_C_SYS_PARMS Net ID 4 Site 1.24 SYS 3C17; continuous"
+   },
+   {
+    "offset_hz": -5718100,
+    "bandwidth_hz": 12500,
+    "kind": "unclassified narrowband carrier",
+    "notes": "856.2819 MHz, strongest line, no P25/DMR sync from dsd-neo (analog or other)"
+   },
+   {
+    "offset_hz": -4065200,
+    "bandwidth_hz": 12500,
+    "kind": "unclassified narrowband carrier",
+    "notes": "857.9348 MHz, no sync"
+   },
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 2000,
+    "kind": "DC/LO spike",
+    "notes": "HackRF DC offset spike (+ ~53 dB over floor)"
+   },
+   {
+    "offset_hz": 4500000,
+    "bandwidth_hz": 4500000,
+    "kind": "wideband non-radio-test signals",
+    "notes": "wide blocks 2.0-6.6 MHz and >7.3 MHz offset (cellular/LTE-like), not narrowband test targets"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 (782e629) --iq-replay on 48 kHz cu8 channels extracted with tools/make_composite.py extract",
+   "log": "dsd_neo_channel_decodes.txt",
+   "summary": "P25p1 CC NAC 0x450 site 23; P25p1 CC NAC 0x451 site 21 (WACN BEE00 SYSID 45C); P25p1 voice NAC 0x451/0x418; DMR CC=8 (SLC_C_SYS_PARMS Net 4 Site 1.24 SYS 3C17)"
+  },
+  "verification": "Spectrum PNG viewed (continuous 12.5 kHz lines + LTE blocks + DC spike). 24 strongest narrow carriers of the 4 s window and 7 of this 2 s excerpt were each shifted/decimated to 48 kHz cu8 and run through dsd-neo: 2x P25p1 TSBK control channels (WACN/SYSID/NAC/RFSS/site decoded), 5+ P25p1 voice channels, 1 DMR CC=8 carrier. The P25 channel-plan decoded from the control channel (base 851.00625 MHz + n*6.25 kHz; CC chan 0x0391=856.7125, grants 0x0559=859.5625, 0x0409=857.4625, 0x05E9=860.4625) coincides with the observed carrier frequencies to within -1.7..-2.4 kHz, which independently confirms both the 20 MS/s rate and the 862.0 MHz centre label.",
+  "caveats": [
+   "Capture hardware is a HackRF (8-bit, 20 MS/s) not an RTL-SDR: noise floor/dynamic range differ from an RTL-SDR Blog V4; nominal tuned centre 862.000 MHz but all carriers sit ~1.7-2.4 kHz below the P25 channel-plan frequencies decoded from the control channel (tuner/crystal error of the original recorder, ~-2.5 ppm); decoded traffic contains real radio unit IDs/talkgroups (public safety radio metadata)",
+   "20 MS/s is far above RTL-SDR rates: use for resampling/channelizer tests or re-slice with make_composite.py slice",
+   "8-bit unsigned samples carry a DC bias of about +2.5 LSB (mean ~130)",
+   "dsd-neo needed 1-2 s per channel to show control-channel content; DMR CSBKs are mostly CRC-ERR (weak) so DMR trunk semantics are NOT verified beyond sync/colour code/short-LC"
+  ],
+  "status": "verified",
+  "path": "p25_dmr_800mhz_hackrf_20msps_2s/ia862_20msps_2s.cu8",
+  "size_bytes": 80000000,
+  "sha256": "0a1fb5601a15f3a1bdb99db02ef1083ee48a8834312fb099f1d05540289c1991",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 20000000.0,
+  "duration_s": 2.0,
+  "center_freq_hz": 862000000.0,
+  "iq_swap": false,
+  "tags": [
+   "trunking",
+   "p25p1",
+   "dmr",
+   "real_rf",
+   "hackrf_derived"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "dsd_neo_channel_decodes.txt",
+   "evidence.json",
+   "ia862_20msps_2s.cu8",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "p25_dmr_800mhz_hackrf_sliceA_857p70_2400k",
+  "file": "ia862_sliceA_857.70MHz_2400k.cu8",
+  "source_url": "https://archive.org/download/SDR-IQ-20221126/IQ-2022_11_26.tar",
+  "source_ref": "archive.org item 'SDR-IQ-20221126' (https://archive.org/details/SDR-IQ-20221126), tar member 2022_11_26/23-19-30_862000000Hz.wav = RF64 WAV, 20 MS/s, 2 ch, 8-bit unsigned, 20 s, HackRF One per item description; fetched with HTTP range requests (member not downloaded in full)",
+  "license": "none stated (archive.org item carries no license/rights metadata; uploader 'anthony96922'); internal test input only",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": "REAL data, derived: 4.0 s window (t=10..14 s of the 20 MS/s capture) shifted by -4.30 MHz, low-passed and resampled 20 MS/s -> 2.4 MS/s with tools/make_composite.py (slice-equivalent: channelize(agc=False), first/last 20 ms trimmed), scaled so the 99.99th percentile of |I|,|Q| = 100 LSB, quantized to cu8. Resampling/rescaling means this is not an untouched RTL-SDR capture.",
+  "contents": [
+   {
+    "offset_hz": -990200,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 control channel",
+    "notes": "856.7101 MHz; NAC 0x451, WACN BEE00, SYSID 0x45C, RFSS 1, site 21; continuous; ~25 dB SNR in 586 Hz bins"
+   },
+   {
+    "offset_hz": -539600,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 control channel (different system)",
+    "notes": "857.1604 MHz; NAC 0x346, WACN BEE00, SYSID 0x346 (TSBK/TDU/MPDU); continuous"
+   },
+   {
+    "offset_hz": -214500,
+    "bandwidth_hz": 14000,
+    "kind": "unclassified narrowband carrier",
+    "notes": "857.4856 MHz continuous, no dsd-neo sync"
+   },
+   {
+    "offset_hz": 10000,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice",
+    "notes": "857.7100 MHz; NAC 0x451; carrier present t~0-3.4 s then off"
+   },
+   {
+    "offset_hz": 235500,
+    "bandwidth_hz": 9000,
+    "kind": "unclassified narrowband burst",
+    "notes": "857.9355 MHz; present t~0.35-2.85 s; no sync"
+   },
+   {
+    "offset_hz": 705000,
+    "bandwidth_hz": 12000,
+    "kind": "unclassified narrowband carrier",
+    "notes": "858.405 MHz continuous"
+   },
+   {
+    "offset_hz": 785700,
+    "bandwidth_hz": 13000,
+    "kind": "unclassified narrowband carrier",
+    "notes": "858.4857 MHz continuous"
+   },
+   {
+    "offset_hz": 1010200,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice (gated)",
+    "notes": "858.7102 MHz; NAC 0x451/0x418; intermittent"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 --iq-replay on channels re-extracted from THIS file (round trip)",
+   "log": "dsd_neo_channel_decodes.txt"
+  },
+  "verification": "Spectrum PNG viewed with expected carriers annotated (red dotted lines coincide with real lines). Every annotated channel was re-extracted from this 2.4 MS/s file with an independent shift/decimate step and decoded with dsd-neo; results in dsd_neo_channel_decodes.txt. Same decodes as obtained on the 20 MS/s source, so the slicing preserved the signals.",
+  "caveats": [
+   "Capture hardware is a HackRF (8-bit, 20 MS/s) not an RTL-SDR: noise floor/dynamic range differ from an RTL-SDR Blog V4; nominal tuned centre 862.000 MHz but all carriers sit ~1.7-2.4 kHz below the P25 channel-plan frequencies decoded from the control channel (tuner/crystal error of the original recorder, ~-2.5 ppm); decoded traffic contains real radio unit IDs/talkgroups (public safety radio metadata)",
+   "only ~3.96 s long (P25 CC TSBKs repeat every ~0.1-0.5 s so this is enough to decode but short for trunk-following state machines)",
+   "HackRF 8-bit noise floor after decimation: lines are ~20-30 dB above the floor in 586 Hz bins, similar to an RTL-SDR at mid gain",
+   "carriers marked unclassified are real but unidentified (no sync from dsd-neo)"
+  ],
+  "status": "verified",
+  "path": "p25_dmr_800mhz_hackrf_sliceA_857p70_2400k/ia862_sliceA_857.70MHz_2400k.cu8",
+  "size_bytes": 19008000,
+  "sha256": "3efae8b2b42bc6d995110ad4835449e7aa894e33fea0c18d053f2e0c56abf065",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 2400000.0,
+  "duration_s": 3.96,
+  "center_freq_hz": 857700000.0,
+  "iq_swap": false,
+  "tags": [
+   "trunking",
+   "p25p1",
+   "dmr",
+   "real_rf",
+   "hackrf_derived",
+   "rtl_like_2.4MS/s",
+   "time_aligned:ia862_src_t10-14s"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "dsd_neo_channel_decodes.txt",
+   "evidence.json",
+   "ia862_sliceA_857.70MHz_2400k.cu8",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "p25_dmr_800mhz_hackrf_sliceB_859p55_2400k",
+  "file": "ia862_sliceB_859.55MHz_2400k.cu8",
+  "source_url": "https://archive.org/download/SDR-IQ-20221126/IQ-2022_11_26.tar",
+  "source_ref": "archive.org item 'SDR-IQ-20221126' (https://archive.org/details/SDR-IQ-20221126), tar member 2022_11_26/23-19-30_862000000Hz.wav = RF64 WAV, 20 MS/s, 2 ch, 8-bit unsigned, 20 s, HackRF One per item description; fetched with HTTP range requests (member not downloaded in full)",
+  "license": "none stated (archive.org item carries no license/rights metadata; uploader 'anthony96922'); internal test input only",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": "REAL data, derived: 4.0 s window (t=10..14 s of the 20 MS/s capture) shifted by -2.45 MHz, low-passed and resampled 20 MS/s -> 2.4 MS/s with tools/make_composite.py (slice-equivalent: channelize(agc=False), first/last 20 ms trimmed), scaled so the 99.99th percentile of |I|,|Q| = 100 LSB, quantized to cu8. Resampling/rescaling means this is not an untouched RTL-SDR capture.",
+  "contents": [
+   {
+    "offset_hz": -839600,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice/traffic",
+    "notes": "858.7104 MHz; NAC 0x451/0x418; intermittent; adjacent-site broadcasts (SYSID 45C sites 22-28)"
+   },
+   {
+    "offset_hz": -89600,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice",
+    "notes": "859.4604 MHz; NAC 0x451; starts t~1.75 s"
+   },
+   {
+    "offset_hz": 10500,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice",
+    "notes": "859.5605 MHz; NAC 0x451; starts t~2.6 s (CC grant 0x0559 = 859.5625)"
+   },
+   {
+    "offset_hz": 791600,
+    "bandwidth_hz": 12500,
+    "kind": "DMR TDMA carrier (Tier III-style CC)",
+    "notes": "860.3416 MHz; both slots; Color Code 8; Short LC SLC_C_SYS_PARMS Net 4 Site 1.24 SYS 3C17; CSBK mostly CRC-ERR; continuous"
+   },
+   {
+    "offset_hz": -1064100,
+    "bandwidth_hz": 14000,
+    "kind": "unclassified narrowband carrier",
+    "notes": "858.4859 MHz continuous (strong)"
+   },
+   {
+    "offset_hz": -64500,
+    "bandwidth_hz": 12000,
+    "kind": "unclassified narrowband carrier",
+    "notes": "859.4855 MHz continuous"
+   },
+   {
+    "offset_hz": 111300,
+    "bandwidth_hz": 8000,
+    "kind": "unclassified carrier",
+    "notes": "859.6613 MHz"
+   },
+   {
+    "offset_hz": 935700,
+    "bandwidth_hz": 8000,
+    "kind": "unclassified narrowband carrier",
+    "notes": "860.4857 MHz"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 --iq-replay on channels re-extracted from THIS file (round trip)",
+   "log": "dsd_neo_channel_decodes.txt"
+  },
+  "verification": "Spectrum PNG viewed with expected carriers annotated (red dotted lines coincide with real lines). Every annotated channel was re-extracted from this 2.4 MS/s file with an independent shift/decimate step and decoded with dsd-neo; results in dsd_neo_channel_decodes.txt. Same decodes as obtained on the 20 MS/s source, so the slicing preserved the signals.",
+  "caveats": [
+   "Capture hardware is a HackRF (8-bit, 20 MS/s) not an RTL-SDR: noise floor/dynamic range differ from an RTL-SDR Blog V4; nominal tuned centre 862.000 MHz but all carriers sit ~1.7-2.4 kHz below the P25 channel-plan frequencies decoded from the control channel (tuner/crystal error of the original recorder, ~-2.5 ppm); decoded traffic contains real radio unit IDs/talkgroups (public safety radio metadata)",
+   "only ~3.96 s long (P25 CC TSBKs repeat every ~0.1-0.5 s so this is enough to decode but short for trunk-following state machines)",
+   "HackRF 8-bit noise floor after decimation: lines are ~20-30 dB above the floor in 586 Hz bins, similar to an RTL-SDR at mid gain",
+   "DMR CSBKs are mostly CRC-ERR"
+  ],
+  "status": "verified",
+  "path": "p25_dmr_800mhz_hackrf_sliceB_859p55_2400k/ia862_sliceB_859.55MHz_2400k.cu8",
+  "size_bytes": 19008000,
+  "sha256": "923541592d0502d6fe79f84a9352d0ebe4aae81c5577183b06ca8a2b7e2c3a4b",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 2400000.0,
+  "duration_s": 3.96,
+  "center_freq_hz": 859550000.0,
+  "iq_swap": false,
+  "tags": [
+   "trunking",
+   "p25p1",
+   "dmr",
+   "real_rf",
+   "hackrf_derived",
+   "rtl_like_2.4MS/s",
+   "time_aligned:ia862_src_t10-14s"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "dsd_neo_channel_decodes.txt",
+   "evidence.json",
+   "ia862_sliceB_859.55MHz_2400k.cu8",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "p25_dmr_800mhz_hackrf_sliceC_853p00_2400k",
+  "file": "ia862_sliceC_853.00MHz_2400k.cu8",
+  "source_url": "https://archive.org/download/SDR-IQ-20221126/IQ-2022_11_26.tar",
+  "source_ref": "archive.org item 'SDR-IQ-20221126' (https://archive.org/details/SDR-IQ-20221126), tar member 2022_11_26/23-19-30_862000000Hz.wav = RF64 WAV, 20 MS/s, 2 ch, 8-bit unsigned, 20 s, HackRF One per item description; fetched with HTTP range requests (member not downloaded in full)",
+  "license": "none stated (archive.org item carries no license/rights metadata; uploader 'anthony96922'); internal test input only",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": "REAL data, derived: 4.0 s window (t=10..14 s of the 20 MS/s capture) shifted by -9.00 MHz, low-passed and resampled 20 MS/s -> 2.4 MS/s with tools/make_composite.py (slice-equivalent: channelize(agc=False), first/last 20 ms trimmed), scaled so the 99.99th percentile of |I|,|Q| = 100 LSB, quantized to cu8. Resampling/rescaling means this is not an untouched RTL-SDR capture.",
+  "contents": [
+   {
+    "offset_hz": 397900,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 control channel",
+    "notes": "853.3979 MHz; NAC 0x450, WACN BEE00, SYSID 0x45C, RFSS 1, site 23; continuous"
+   },
+   {
+    "offset_hz": -327000,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice/traffic",
+    "notes": "852.673 MHz; NAC 0x450 (LC + adjacent-site status)"
+   },
+   {
+    "offset_hz": -352100,
+    "bandwidth_hz": 6500,
+    "kind": "unclassified narrowband carrier",
+    "notes": "852.648 MHz, no sync"
+   },
+   {
+    "offset_hz": -564300,
+    "bandwidth_hz": 3500,
+    "kind": "unclassified narrowband carrier",
+    "notes": "852.436 MHz, no sync"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 --iq-replay on channels re-extracted from THIS file (round trip)",
+   "log": "dsd_neo_channel_decodes.txt"
+  },
+  "verification": "Spectrum PNG viewed with expected carriers annotated (red dotted lines coincide with real lines). Every annotated channel was re-extracted from this 2.4 MS/s file with an independent shift/decimate step and decoded with dsd-neo; results in dsd_neo_channel_decodes.txt. Same decodes as obtained on the 20 MS/s source, so the slicing preserved the signals.",
+  "caveats": [
+   "Capture hardware is a HackRF (8-bit, 20 MS/s) not an RTL-SDR: noise floor/dynamic range differ from an RTL-SDR Blog V4; nominal tuned centre 862.000 MHz but all carriers sit ~1.7-2.4 kHz below the P25 channel-plan frequencies decoded from the control channel (tuner/crystal error of the original recorder, ~-2.5 ppm); decoded traffic contains real radio unit IDs/talkgroups (public safety radio metadata)",
+   "only ~3.96 s long (P25 CC TSBKs repeat every ~0.1-0.5 s so this is enough to decode but short for trunk-following state machines)",
+   "HackRF 8-bit noise floor after decimation: lines are ~20-30 dB above the floor in 586 Hz bins, similar to an RTL-SDR at mid gain",
+   "carriers marked unclassified are real but unidentified (no sync from dsd-neo)"
+  ],
+  "status": "verified",
+  "path": "p25_dmr_800mhz_hackrf_sliceC_853p00_2400k/ia862_sliceC_853.00MHz_2400k.cu8",
+  "size_bytes": 19008000,
+  "sha256": "035091cd61ce0fc366b8d93473f7bfc01d98af7c57334862c383172b7ad465de",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 2400000.0,
+  "duration_s": 3.96,
+  "center_freq_hz": 853000000.0,
+  "iq_swap": false,
+  "tags": [
+   "trunking",
+   "p25p1",
+   "dmr",
+   "real_rf",
+   "hackrf_derived",
+   "rtl_like_2.4MS/s",
+   "time_aligned:ia862_src_t10-14s"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "dsd_neo_channel_decodes.txt",
+   "evidence.json",
+   "ia862_sliceC_853.00MHz_2400k.cu8",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "fm_3stations_hackrf_slice_105p50_2400k",
+  "file": "ia1119_fm_slice_105.50MHz_2400k.cu8",
+  "source_url": "https://archive.org/download/SDR-IQ-20230609/IQ-2023_06_09.tar",
+  "source_ref": "archive.org item 'SDR-IQ-20230609', tar member 2023_06_09/10-19-28_111900000Hz.wav (RF64 WAV, 20 MS/s, 8-bit, centre 111.9 MHz, HackRF), fetched by HTTP range",
+  "license": "none stated (archive.org item carries no license/rights metadata; uploader 'anthony96922'); internal test input only",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": "REAL data, derived: 6 s window (t=10..16 s) of the 20 MS/s capture shifted -6.4 MHz (centre 111.9 -> 105.5 MHz), resampled to 2.4 MS/s (make_composite.py slice), 99.99th pct -> 100 LSB, cu8. Slice sidecar: slice_derivation.json",
+  "contents": [
+   {
+    "offset_hz": -795000,
+    "bandwidth_hz": 170000,
+    "kind": "WFM broadcast, stereo",
+    "notes": "~104.705 MHz; 19 kHz pilot 27.7 dB over audio floor; strongest, ~18 dB above floor"
+   },
+   {
+    "offset_hz": 190000,
+    "bandwidth_hz": 170000,
+    "kind": "WFM broadcast, stereo",
+    "notes": "~105.69 MHz; pilot 17.5 dB"
+   },
+   {
+    "offset_hz": 596000,
+    "bandwidth_hz": 170000,
+    "kind": "WFM broadcast, stereo",
+    "notes": "~106.10 MHz; pilot 15.9 dB"
+   },
+   {
+    "offset_hz": 779000,
+    "bandwidth_hz": 30000,
+    "kind": "narrow/unclassified signal",
+    "notes": "~106.28 MHz; no 19 kHz pilot (0.4 dB) - not a stereo FM station"
+   },
+   {
+    "offset_hz": -500000,
+    "bandwidth_hz": 2000,
+    "kind": "narrow spur",
+    "notes": "~105.0 MHz continuous line; probably a HackRF spur"
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "FM-demodulated each hump at its offset (110 kHz LPF, discriminator, Welch): 19 kHz stereo pilot 27.7 / 17.5 / 15.9 dB over the neighbouring baseband noise for the three stations, 0.4 dB for the 4th. Audio shows classic breathing in the waterfall. Station call signs not identified (no RDS decode attempted).",
+  "caveats": [
+   "weak (peak ~18 dB over the noise floor; 8-bit HackRF at low gain) - detectable but not hi-fi",
+   "the same 20 MS/s capture's 'airband' part (118-122 MHz) was found to contain only a spur comb (see _rejected/airband_hackrf_119p80_spurs_only) - the HackRF's internal spurs also appear at -500 kHz here",
+   "station frequencies \u00b110 kHz (hump centres), tuner error unknown"
+  ],
+  "status": "verified",
+  "path": "fm_3stations_hackrf_slice_105p50_2400k/ia1119_fm_slice_105.50MHz_2400k.cu8",
+  "size_bytes": 28608000,
+  "sha256": "ce8ecc8524e9d5bab67472170bc34fdb3eee4a420af863f29bb127c53f95fec3",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 2400000.0,
+  "duration_s": 5.96,
+  "center_freq_hz": 105500000.0,
+  "iq_swap": false,
+  "tags": [
+   "fm_broadcast",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "ia1119_fm_slice_105.50MHz_2400k.cu8",
+   "slice_derivation.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "fm_hdradio_nrsc5_sample_1488k",
+  "file": "nrsc5_sample.cu8",
+  "source_url": "https://github.com/theori-io/nrsc5/raw/9beb2c77171472c707f285f51a1385ac4c4a8be6/support/sample.xz",
+  "source_ref": "git clone (sparse) of theori-io/nrsc5 @9beb2c7, file support/sample.xz (23,051,296 B, xz sha256 de97d7406622082ddf1ea8738b20b13bec7516330370c81f34e9b127a5f3868f), decompressed with xz -d (50,331,648 B)",
+  "license": "GPL-3.0 (repository LICENSE)",
+  "source_sha256": "4d6d3505d5aabef7bbafb4f7d5963a407b2e44916613e513c3cbb0a4604f03c9",
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 200000,
+    "kind": "WFM broadcast stereo + RDS + HD Radio hybrid",
+    "notes": "stereo pilot 47 dB, RDS 57 kHz 20 dB, strong; HD Radio primary digital sidebands occupy +-(129..198) kHz (flat 70 kHz-wide plateaus ~17 dB over floor)"
+   },
+   {
+    "offset_hz": -164000,
+    "bandwidth_hz": 70000,
+    "kind": "HD Radio (NRSC-5) lower digital sideband",
+    "notes": "flat-top, edges at about -200/-130 kHz"
+   },
+   {
+    "offset_hz": 164000,
+    "bandwidth_hz": 70000,
+    "kind": "HD Radio (NRSC-5) upper digital sideband",
+    "notes": "edges +130/+200 kHz"
+   },
+   {
+    "offset_hz": 400000,
+    "bandwidth_hz": 40000,
+    "kind": "adjacent FM station (weak)",
+    "notes": "second hump at about +490 kHz"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "nrsc5 (NOT run here; upstream README: xz -d sample.xz; nrsc5 -r sample 0 plays HD Radio audio program 0)",
+   "notes": "upstream-documented use of this exact file; format cu8 @ 1,488,375 S/s is the nrsc5 default"
+  },
+  "verification": "Format/rate taken from nrsc5 README ('complex unsigned 8-bit @ 1488375 SPS, default cu8') and confirmed from content: mean 127.3, no clipping, HD Radio sidebands appear at the standard 129-198 kHz offsets only if the rate is 1.488375 MS/s; FM demod shows 47 dB 19 kHz pilot and RDS at 57 kHz. HD digital decode needs nrsc5 (not built).",
+  "caveats": [
+   "centre frequency not stated by upstream",
+   "needs decoder confirmation (nrsc5) for the digital part"
+  ],
+  "status": "verified",
+  "path": "fm_hdradio_nrsc5_sample_1488k/nrsc5_sample.cu8",
+  "size_bytes": 50331648,
+  "sha256": "4d6d3505d5aabef7bbafb4f7d5963a407b2e44916613e513c3cbb0a4604f03c9",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 1488375.0,
+  "duration_s": 16.9082549760645,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "fm_broadcast",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "nrsc5_sample.cu8",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "fm_hdradio_rtlsdrblog_samples1071_1488k",
+  "file": "samples1071_first20s.cu8",
+  "source_url": "https://www.rtl-sdr.com/decoding-and-listening-to-hd-radio-nrsc-5-with-an-rtl-sdr/ (link to http://www.mediafire.com/file/3x7lga481621hwh/NRSC_W_Sample.zip)",
+  "source_ref": "NRSC_W_Sample.zip (85,184,957 B) contained libao/librtlsdr/libusb DLLs + nrsc5.exe (never executed, deleted) and samples1071 (102,236,160 B); name/format per nrsc5 README: 'nrsc5 -g 49.0 -w samples1071 107.1 0' => 107.1 MHz, cu8 @ 1,488,375 S/s",
+  "license": "none stated (rtl-sdr.com blog post / mediafire; nrsc5 is GPL-3.0)",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": "first 20.000 s (59,535,000 B) of the 34.3 s file",
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 200000,
+    "kind": "WFM broadcast stereo + HD Radio hybrid",
+    "notes": "107.1 MHz; strong (pilot 39.6 dB over floor, 99th pct deviation 73 kHz = over-modulated/loud); HD sidebands +-(125..195) kHz"
+   },
+   {
+    "offset_hz": -165000,
+    "bandwidth_hz": 70000,
+    "kind": "HD Radio lower digital sideband",
+    "notes": "plateau -200..-135 kHz (shifted ~5 kHz: tuner error)"
+   },
+   {
+    "offset_hz": 160000,
+    "bandwidth_hz": 70000,
+    "kind": "HD Radio upper digital sideband",
+    "notes": "plateau +125..+195 kHz"
+   },
+   {
+    "offset_hz": 240000,
+    "bandwidth_hz": 1000,
+    "kind": "narrow spur/carrier",
+    "notes": "+240 kHz line (likely spur/adjacent carrier)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "nrsc5 (not run)",
+   "notes": "README documents nrsc5 -r samples1071 0"
+  },
+  "verification": "Spectrum viewed (FM + two flat HD sidebands at the expected offsets, which also confirms 1.488375 MS/s). FM discriminator shows 39.6 dB 19 kHz pilot. First/last bytes show cu8 distribution mean 127.3, 4 distinct histogram plateaus, no all-zero or clipping (clip 8e-8).",
+  "caveats": [
+   "edges of the 1.488 MS/s band (+-600..740 kHz) show alias/rise (RTL tuner IF filter + aliasing of adjacent stations), as in a real RTL-SDR capture",
+   "needs nrsc5 for digital confirmation"
+  ],
+  "status": "verified",
+  "path": "fm_hdradio_rtlsdrblog_samples1071_1488k/samples1071_first20s.cu8",
+  "size_bytes": 59535000,
+  "sha256": "ea68591034c4d1a9fa5a9927fef1e9e04b321d4da9d14e890d31d90c08a34ae9",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 1488375.0,
+  "duration_s": 20.0,
+  "center_freq_hz": 107100000.0,
+  "iq_swap": false,
+  "tags": [
+   "fm_broadcast",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "samples1071_first20s.cu8",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "fm_cdr_106100_sdrsharp_900k",
+  "file": "SDRSharp_20191205_160257Z_106100kHz_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/8/8b/SDRSharp_20191205_160257Z_106100kHz_IQ.wav",
+  "source_ref": "Signal Identification Wiki page 'China digital radio (CDR)' references this file (page text search); file name = SDR# IQ recording @106.100 MHz",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "5fa42be65400e4d60c95dde20806b941594b77de504e74d71a2f6292dbf5e297",
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 170000,
+    "kind": "WFM broadcast stereo",
+    "notes": "106.1 MHz; pilot 32 dB; 99th pct deviation 53 kHz"
+   },
+   {
+    "offset_hz": -175000,
+    "bandwidth_hz": 50000,
+    "kind": "China Digital Radio (CDR) hybrid digital sideband",
+    "notes": "rectangular plateau -200..-150 kHz, 10 dB over floor, wiki-labelled CDR"
+   },
+   {
+    "offset_hz": 175000,
+    "bandwidth_hz": 50000,
+    "kind": "China Digital Radio (CDR) hybrid digital sideband",
+    "notes": "plateau +150..+200 kHz"
+   },
+   {
+    "offset_hz": 400000,
+    "bandwidth_hz": 12000,
+    "kind": "adjacent FM station edge (106.5 MHz)",
+    "notes": "narrow spike at +400 kHz with FM structure"
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "Spectrum viewed; FM discriminator shows 32.3 dB pilot. Plateau structure matches an IBOC-style digital sideband pair.",
+  "caveats": [
+   "sample rate 900,001 Hz is below the 1.0 MS/s lower bound requested; header rate is correct (900001)",
+   "8-bit samples",
+   "identity of the digital sidebands as CDR relies on the wiki label; no decoder run"
+  ],
+  "status": "verified",
+  "path": "fm_cdr_106100_sdrsharp_900k/SDRSharp_20191205_160257Z_106100kHz_IQ.wav",
+  "size_bytes": 18169900,
+  "sha256": "5fa42be65400e4d60c95dde20806b941594b77de504e74d71a2f6292dbf5e297",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_u8",
+  "channels": 2,
+  "sample_rate_hz": 900001.0,
+  "duration_s": 10.094353228496413,
+  "center_freq_hz": 106100000.0,
+  "iq_swap": false,
+  "tags": [
+   "fm_broadcast",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "SDRSharp_20191205_160257Z_106100kHz_IQ.wav",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "dabplus_9a_202928_2500k",
+  "file": "SDRSharp_20210103_035009Z_202928000Hz_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/9/9f/DABplus9A.zip (identical copy 5/57/DAB%2B9A.zip)",
+  "source_ref": "Signal Identification Wiki page 'Digital Audio Broadcasting Plus (DAB+)'; WAV extracted from zip, name = SDR# IQ @202.928000 MHz (DAB block 9A)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "abc086cfe05cce3707351162a4613b3f435212e78ac049948a9961c50fce5936",
+  "kind": "wideband_iq",
+  "derivation": "unzipped, unchanged",
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 1536000,
+    "kind": "DAB (Eureka-147) OFDM ensemble, transmission mode I",
+    "notes": "flat block from -768 to +768 kHz around the 202.928 MHz centre (DAB block 9A); null symbol 1.3 ms every 96.0 ms"
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "Spectrum viewed (1.536 MHz flat block, sharp edges at +-768 kHz, ~30 dB over the floor). Envelope analysis over 50 us blocks: 74 power nulls of 1.3 ms duration with spacing exactly 96.0 ms (DAB mode I frame = 96 ms, null symbol 1.297 ms) across the 7.16 s file. No ensemble decode attempted (welle.io/dab not built).",
+  "caveats": [
+   "no I/Q-order information is available (DAB is symmetric)",
+   "7.2 s long"
+  ],
+  "status": "verified",
+  "path": "dabplus_9a_202928_2500k/SDRSharp_20210103_035009Z_202928000Hz_IQ.wav",
+  "size_bytes": 71565356,
+  "sha256": "4f9027d49a52c920a5412c50aebfa9e69a20b7efef424157af526dafa5c9f26f",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "channels": 2,
+  "sample_rate_hz": 2500000.0,
+  "duration_s": 7.1565312,
+  "center_freq_hz": 202928000.0,
+  "iq_swap": false,
+  "tags": [
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "SDRSharp_20210103_035009Z_202928000Hz_IQ.wav",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "dab_2000k",
+  "file": "DAB.wav",
+  "source_url": "https://www.sigidwiki.com/images/0/0f/DAB.zip",
+  "source_ref": "Signal Identification Wiki page 'Digital Audio Broadcasting (DAB)'; WAV extracted from zip",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "ce98103996d698d5477d8bfee08e113e2bfa3298c2cac5ccc55a6f1fc23b31a7",
+  "kind": "wideband_iq",
+  "derivation": "unzipped, unchanged",
+  "contents": [
+   {
+    "offset_hz": -377000,
+    "bandwidth_hz": 1536000,
+    "kind": "DAB OFDM ensemble, mode I",
+    "notes": "block spans about -1145..+391 kHz around the tuned centre (tuned centre not stated); null every 96.0 ms"
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "Spectrum viewed; envelope analysis: 29 nulls of 1.3 ms spaced exactly 96.0 ms in the 2.74 s file (DAB mode I).",
+  "caveats": [
+   "8-bit; centre frequency unknown (not in file name or header)",
+   "block is not centred (about -377 kHz)"
+  ],
+  "status": "verified",
+  "path": "dab_2000k/DAB.wav",
+  "size_bytes": 10959140,
+  "sha256": "0153262d041ee4414da66800ed180c33996f914eb1eb7baf066d5746d69eb563",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_u8",
+  "channels": 2,
+  "sample_rate_hz": 2000000.0,
+  "duration_s": 2.739774,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "real_rf"
+  ],
+  "files": [
+   "DAB.wav",
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "ism_433879_sdrtouch_1024k",
+  "file": "SDRTouch_20190107_104925_433879kHz_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/0/03/SDRTouch_20190107_104925_433879kHz_IQ.wav",
+  "source_ref": "Signal Identification Wiki page '433p90' references this file; recorded with the Android app SDRTouch @433.879 MHz",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "6c952519c2915a8447a4e8116228837042f7cdcf5cffb2e94bcd655dc9a03e3a",
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 106000,
+    "bandwidth_hz": 5000,
+    "kind": "ISM ASK/OOK burst (Acurite-Tower id 4700)",
+    "notes": "~433.985 MHz; 3 repeats per transmission, T=2.5 C RH=58 %; transmissions at t~5.8 s and 22.5 s"
+   },
+   {
+    "offset_hz": 80500,
+    "bandwidth_hz": 4500,
+    "kind": "ISM burst (LaCrosse-TX id 83)",
+    "notes": "~433.96 MHz; T=2.8 C; t~15.2 s (2 messages)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally), converted WAV->cu8, -s 1024000 -f 433.879M",
+   "file": "rtl_433_decode.json",
+   "summary": "8 messages: Acurite-Tower id 4700 channel A (temperature_C 2.5, humidity 58) x6; LaCrosse-TX id 83 (temperature_C 2.8) x2"
+  },
+  "verification": "rtl_433 decodes real sensors from this wideband (1.024 MS/s) capture; spectrum shows the bursts. Header rate 1,024,000 confirmed by the successful decode (rtl_433 pulse timing would fail at a wrong rate).",
+  "caveats": [
+   "some messages report mic CHECKSUM/PARITY (weak checksum protocols) - treat the decodes as plausible not authoritative",
+   "8-bit unsigned PCM"
+  ],
+  "status": "verified",
+  "path": "ism_433879_sdrtouch_1024k/SDRTouch_20190107_104925_433879kHz_IQ.wav",
+  "size_bytes": 58196012,
+  "sha256": "6c952519c2915a8447a4e8116228837042f7cdcf5cffb2e94bcd655dc9a03e3a",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_u8",
+  "channels": 2,
+  "sample_rate_hz": 1024000.0,
+  "duration_s": 28.416,
+  "center_freq_hz": 433879000.0,
+  "iq_swap": false,
+  "tags": [
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "SDRTouch_20190107_104925_433879kHz_IQ.wav",
+   "evidence.json",
+   "rtl_433_decode.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "adsb_dump1090_modes1_2000k",
+  "file": "modes1.bin",
+  "source_url": "https://github.com/antirez/dump1090/blob/efe64db3c6ba1520291331628a33c1e208e851a6/testfiles/modes1.bin",
+  "source_ref": "git sparse clone of antirez/dump1090 @efe64db (the file dump1090 ships for --ifile testing)",
+  "license": "BSD-3-Clause style (header of dump1090.c, (C) 2012 Salvatore Sanfilippo)",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -65000,
+    "bandwidth_hz": 10000,
+    "kind": "narrow CW/interference line",
+    "notes": "constant carrier ~30 dB over the broadband noise, not ADS-B"
+   },
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 2000000,
+    "kind": "Mode S / ADS-B 1090 MHz extended squitter bursts (PPM, 8 us preamble + 56/112 us)",
+    "notes": "217 usable messages in 0.178 s; one aircraft ICAO 4D2023, callsign AMC421, ~22,400 ft"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "antirez/dump1090 built locally with a stubbed rtl-sdr.h (file replay only): ./dump1090 --ifile modes1.bin",
+   "files": [
+    "dump1090_stats.txt",
+    "dump1090_raw_messages.txt",
+    "dump1090_decoded.txt"
+   ],
+   "summary": "415 valid preambles, 407 zero-error demod, 211 good CRC, 217 total usable messages; aircraft ICAO 4d2023, Identification AMC421, altitude 22,350-22,825 ft"
+  },
+  "verification": "Decoded with dump1090: 217 messages (DF17 airborne position + identification, DF4/DF20 altitude replies) all from ICAO 4D2023 'AMC421'. 8-bit unsigned I/Q at 2 MS/s is the dump1090 input format.",
+  "caveats": [
+   "only 0.178 s (356,868 samples) and one aircraft",
+   "0.08 % of samples sit on the 8-bit rails (|I|,|Q| = 0/255): strong close-range aircraft, mild saturation",
+   "no timestamps/ground truth beyond the decoder output"
+  ],
+  "status": "verified",
+  "path": "adsb_dump1090_modes1_2000k/modes1.bin",
+  "size_bytes": 713736,
+  "sha256": "3a33e16025da8669149c780075950b4e908ca036ea21f9583c113f60d5fb3094",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 2000000.0,
+  "duration_s": 0.178434,
+  "center_freq_hz": 1090000000.0,
+  "iq_swap": false,
+  "tags": [
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "dump1090_decoded.txt",
+   "dump1090_raw_messages.txt",
+   "dump1090_stats.txt",
+   "evidence.json",
+   "modes1.bin",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "uhf_421249_tdf_2400k",
+  "file": "18-23-15_421249kHz_first6s.wav",
+  "source_url": "https://www.sigidwiki.com/images/6/69/18-23-15_421249kHz.zip",
+  "source_ref": "Signal Identification Wiki page '421.850 during Tour de France' references this file",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "f58932f93c7e7783565c9eb2403c19337a93c95c3d85fd338a1d0628c3cb3097",
+  "kind": "wideband_iq",
+  "derivation": "first 6.000 s (of 16.85 s) of the 2.4 MS/s 16-bit WAV; header rewritten",
+  "contents": [
+   {
+    "offset_hz": 597656,
+    "bandwidth_hz": 13000,
+    "kind": "wide-ish carrier (wiki: 421.850 MHz Tour de France)",
+    "notes": "421.847 MHz, +598 kHz, continuous, strongest line (27 dB)"
+   },
+   {
+    "offset_hz": -237900,
+    "bandwidth_hz": 5000,
+    "kind": "narrow carrier",
+    "notes": "421.011 MHz"
+   },
+   {
+    "offset_hz": -225600,
+    "bandwidth_hz": 5000,
+    "kind": "narrow carrier",
+    "notes": "421.023 MHz"
+   },
+   {
+    "offset_hz": -162900,
+    "bandwidth_hz": 4000,
+    "kind": "narrow carrier",
+    "notes": "421.086 MHz"
+   },
+   {
+    "offset_hz": -37500,
+    "bandwidth_hz": 3000,
+    "kind": "narrow carrier",
+    "notes": "421.2115 MHz"
+   },
+   {
+    "offset_hz": -970000,
+    "bandwidth_hz": 1500,
+    "kind": "weak narrow carrier",
+    "notes": ""
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "Spectrum viewed: a static comb of continuous narrowband carriers; the wide hump position (+598 kHz = 421.847 MHz) agrees with the wiki page title 421.850 MHz. Modulation/identity of each carrier not determined.",
+  "caveats": [
+   "signals are static (no keying/voice) - useful as multi-carrier detection test, not as decode test",
+   "16-bit stereo WAV, I = left"
+  ],
+  "status": "plausible",
+  "path": "uhf_421249_tdf_2400k/18-23-15_421249kHz_first6s.wav",
+  "size_bytes": 57600044,
+  "sha256": "374ad3f114c418117566aecaca60ff41cf7666c43629685a486ac81077fb30af",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "channels": 2,
+  "sample_rate_hz": 2400000.0,
+  "duration_s": 6.0,
+  "center_freq_hz": 421249000.0,
+  "iq_swap": false,
+  "tags": [
+   "real_rf"
+  ],
+  "files": [
+   "18-23-15_421249kHz_first6s.wav",
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "uhf_504625_multi_nbfm_250k",
+  "file": "SDRSharp_20200908_082144Z_504625000Hz_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/d/d1/Taxi_trunk.zip",
+  "source_ref": "file name 'Taxi_trunk' (wiki page 'Nknown 472p875' references it); SDR# IQ @504.625 MHz",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "015049bb664cd61765d44d4d740aa9a86e1fb015a2c483975abf63270c60855f",
+  "kind": "narrowband_iq",
+  "derivation": "unzipped, unchanged",
+  "contents": [
+   {
+    "offset_hz": 366,
+    "bandwidth_hz": 6300,
+    "kind": "narrowband carrier",
+    "notes": "504.6254 MHz, strongest (31 dB)"
+   },
+   {
+    "offset_hz": -12085,
+    "bandwidth_hz": 5900,
+    "kind": "narrowband carrier",
+    "notes": "504.613 MHz"
+   },
+   {
+    "offset_hz": 25024,
+    "bandwidth_hz": 7000,
+    "kind": "narrowband carrier",
+    "notes": "504.650 MHz"
+   },
+   {
+    "offset_hz": 37500,
+    "bandwidth_hz": 4500,
+    "kind": "narrowband carrier",
+    "notes": "504.6625 MHz"
+   },
+   {
+    "offset_hz": 49683,
+    "bandwidth_hz": 4600,
+    "kind": "narrowband carrier",
+    "notes": "504.675 MHz"
+   },
+   {
+    "offset_hz": 88300,
+    "bandwidth_hz": 7000,
+    "kind": "data/FM burst hump",
+    "notes": "appears at t>4 s"
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "Spectrum viewed: 5 continuous narrow carriers at ~12.5 kHz raster plus a data burst. The 'trunk' label is NOT confirmed (no decode; may be analog/telemetry).",
+  "caveats": [
+   "name claims trunked taxi system, content unverified",
+   "250 kS/s (not wideband)"
+  ],
+  "status": "plausible",
+  "path": "uhf_504625_multi_nbfm_250k/SDRSharp_20200908_082144Z_504625000Hz_IQ.wav",
+  "size_bytes": 12943404,
+  "sha256": "f5b73416720c10322c02e179a4045b2a426c90994195f701d97bed5c8abe94b7",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 12.94336,
+  "center_freq_hz": 504625000.0,
+  "iq_swap": false,
+  "tags": [
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "SDRSharp_20200908_082144Z_504625000Hz_IQ.wav",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "vdl2_model_synthetic_1050k",
+  "file": "vdl2_model_16b_1050kHz.wav",
+  "source_url": "https://github.com/szpajder/dumpvdl2/blob/686e87f2294ef6275855ba7364bd4bb9a0f8f56a/test/vdl2_model_16b_1050kHz.wav",
+  "source_ref": "git sparse clone of szpajder/dumpvdl2 @686e87f, test/",
+  "license": "GPL-3.0 (dumpvdl2 repository)",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 10500,
+    "kind": "VDL Mode 2 D8PSK burst (10.5 kbaud)",
+    "notes": "burst t~0.11-0.24 s true time; CW tone at DC throughout; noise floor -105 dBFS (synthetic-clean)"
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "WAV header claims 44,100 Hz but file name + dumpvdl2 README (symbol rate 10.5 kbaud, rate = multiple of 105 kS/s) imply 1,050,000 S/s: at 1.05 MS/s the burst is ~10 kHz wide = D8PSK main lobe. Not decoded (dumpvdl2 not built).",
+  "caveats": [
+   "WAV HEADER RATE (44100) IS WRONG; true rate 1,050,000 (manifest sample_rate_hz overrides, loader honours it)",
+   "probably synthetic/model-generated (extremely clean) - do not treat as an over-the-air capture",
+   "only 0.376 s"
+  ],
+  "status": "plausible",
+  "path": "vdl2_model_synthetic_1050k/vdl2_model_16b_1050kHz.wav",
+  "size_bytes": 1582220,
+  "sha256": "50a8dc2b270362d0f85f92c7dcf458fb3706e2ce0221ba2dfa86b6a5128a124b",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "channels": 2,
+  "sample_rate_hz": 1050000.0,
+  "wav_header_rate_hz": 44100.0,
+  "duration_s": 0.37670857142857145,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "probably_synthetic",
+   "wrong_wav_header_rate"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "spectrum.png",
+   "vdl2_model_16b_1050kHz.wav"
+  ]
+ },
+ {
+  "id": "iq_pocsag_sigid_128k",
+  "file": "POCSAG_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/6/65/POCSAG_IQ.zip",
+  "source_ref": "Signal Identification Wiki, POCSAG IQ recording",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "45bcba81cd4a0a50d1a0519bf4c484fc7513da18021eb2faed79cb03378c6353",
+  "kind": "narrowband_iq",
+  "derivation": "unzipped, unchanged",
+  "contents": [
+   {
+    "offset_hz": -10500,
+    "bandwidth_hz": 9000,
+    "kind": "POCSAG 512/1200 bps 2-FSK (+-4.5 kHz)",
+    "notes": "decodes; test pager pages"
+   },
+   {
+    "offset_hz": 14700,
+    "bandwidth_hz": 9000,
+    "kind": "second FSK signal",
+    "notes": "not decoded with POCSAG 512/1200/2400 (identity unknown)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "multimon-ng 1.6.2 (0722194) after FM demod of the -10.5 kHz signal, 22.05 kHz s16le",
+   "log": "multimon_ng_decode.txt",
+   "summary": "7 POCSAG lines incl. POCSAG512 addr 1234567 \"THIS IS A TEST PERIODIC PAGE SEQUENTIAL NUMBER 2379\""
+  },
+  "verification": "Spectrum viewed (two 2-FSK signals with 9 kHz tone spacing); FM demod at -10.5 kHz + multimon-ng -> 7 POCSAG messages. Decodes for either I/Q order (FSK polarity is handled by the decoder).",
+  "caveats": [
+   "8-bit, 128 kS/s; centre frequency unknown",
+   "the +14.7 kHz signal was not decoded"
+  ],
+  "status": "verified",
+  "path": "iq_pocsag_sigid_128k/POCSAG_IQ.wav",
+  "size_bytes": 4189228,
+  "sha256": "a5ea9a0ad244e59ede8b20c6dba739ee63b1b318d89929bb67250aa0cfb1a8e2",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_u8",
+  "channels": 2,
+  "sample_rate_hz": 128000.0,
+  "duration_s": 16.364,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "POCSAG_IQ.wav",
+   "evidence.json",
+   "multimon_ng_decode.txt",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_p25p1_c4fm_cc_bee0014c_24k",
+  "file": "P25_C4FM-CC_BEE0014C_IF.wav",
+  "source_url": "https://www.sigidwiki.com/images/4/4a/P25_C4FM-CC_BEE0014C_IF.wav",
+  "source_ref": "Signal Identification Wiki ('IF' complex baseband recording, 24 kS/s, 24-bit PCM stereo)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "2545836bfdae3f87c67ca24b23579bb568b955c8cff28d466e2ddc2f1978ccd3",
+  "kind": "narrowband_iq",
+  "derivation": "unchanged",
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 C4FM control channel",
+    "notes": "NAC 0x140, WACN BEE00, SYSID 0x14C (RFSS 5 site 9 in the dsd-neo fixture cut), 725 P25p1 syncs"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 --iq-replay (WAV resampled 24k->48k, cu8 + sidecar)",
+   "log": "dsd_neo_decode.txt",
+   "summary": "NAC 0x140, WACN BEE00, SYSID 0x14C (RFSS 5 site 9 in the dsd-neo fixture cut), 725 P25p1 syncs"
+  },
+  "verification": "dsd-neo decodes the file in stored channel order (NAC 0x140, WACN BEE00, SYSID 0x14C (RFSS 5 site 9 in the dsd-neo fixture cut), 725 P25p1 syncs); with I/Q swapped it finds no sync - so the stored order (ch0=I, ch1=Q) is the correct one. The dsd-neo repo's 2-second p25p1_* fixtures were cut from these same files.",
+  "caveats": [
+   "24 kS/s sample rate and 24-bit depth are unusual: loaders must handle 24-bit PCM",
+   "not wideband"
+  ],
+  "status": "verified",
+  "path": "iq_p25p1_c4fm_cc_bee0014c_24k/P25_C4FM-CC_BEE0014C_IF.wav",
+  "size_bytes": 7833816,
+  "sha256": "2545836bfdae3f87c67ca24b23579bb568b955c8cff28d466e2ddc2f1978ccd3",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s24",
+  "channels": 2,
+  "sample_rate_hz": 24000.0,
+  "wav_auxi_center_hz": 381725000,
+  "duration_s": 54.4,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "P25_C4FM-CC_BEE0014C_IF.wav",
+   "dsd_neo_decode.txt",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_p25p1_cqpsk_cc_920650d5_24k",
+  "file": "P25_CQPSK-CC_920650D5_IF.wav",
+  "source_url": "https://www.sigidwiki.com/images/c/cb/P25_CQPSK-CC_920650D5_IF.wav",
+  "source_ref": "Signal Identification Wiki ('IF' complex baseband recording, 24 kS/s, 24-bit PCM stereo)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "39d02f22eab5f20558c8fd05664dbf650ff7884ea5ee2eac734112ad6b699762",
+  "kind": "narrowband_iq",
+  "derivation": "unchanged",
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 CQPSK (simulcast) control channel",
+    "notes": "NAC 0x0D6, WACN 92065, SYSID 0x0D5, 1461 syncs"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 --iq-replay (WAV resampled 24k->48k, cu8 + sidecar)",
+   "log": "dsd_neo_decode.txt",
+   "summary": "NAC 0x0D6, WACN 92065, SYSID 0x0D5, 1461 syncs"
+  },
+  "verification": "dsd-neo decodes the file in stored channel order (NAC 0x0D6, WACN 92065, SYSID 0x0D5, 1461 syncs); with I/Q swapped it finds no sync - so the stored order (ch0=I, ch1=Q) is the correct one. The dsd-neo repo's 2-second p25p1_* fixtures were cut from these same files.",
+  "caveats": [
+   "24 kS/s sample rate and 24-bit depth are unusual: loaders must handle 24-bit PCM",
+   "not wideband"
+  ],
+  "status": "verified",
+  "path": "iq_p25p1_cqpsk_cc_920650d5_24k/P25_CQPSK-CC_920650D5_IF.wav",
+  "size_bytes": 7981272,
+  "sha256": "39d02f22eab5f20558c8fd05664dbf650ff7884ea5ee2eac734112ad6b699762",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s24",
+  "channels": 2,
+  "sample_rate_hz": 24000.0,
+  "wav_auxi_center_hz": 851112500,
+  "duration_s": 55.424,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "P25_CQPSK-CC_920650D5_IF.wav",
+   "dsd_neo_decode.txt",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_p25p1_cqpsk_vc_91fe5105_24k",
+  "file": "P25_CQPSK-VC_91FE5105_IF.wav",
+  "source_url": "https://www.sigidwiki.com/images/a/ab/P25_CQPSK-VC_91FE5105_IF.wav",
+  "source_ref": "Signal Identification Wiki ('IF' complex baseband recording, 24 kS/s, 24-bit PCM stereo)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "baec0f488a0879bf61d6b999f3d8de7f976a3f987f31efa7935e8496d477e3a4",
+  "kind": "narrowband_iq",
+  "derivation": "unchanged",
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 CQPSK voice channel",
+    "notes": "NAC 0x106, talkgroups 11825/11832/20602/30150, 90 syncs"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 --iq-replay (WAV resampled 24k->48k, cu8 + sidecar)",
+   "log": "dsd_neo_decode.txt",
+   "summary": "NAC 0x106, talkgroups 11825/11832/20602/30150, 90 syncs"
+  },
+  "verification": "dsd-neo decodes the file in stored channel order (NAC 0x106, talkgroups 11825/11832/20602/30150, 90 syncs); with I/Q swapped it finds no sync - so the stored order (ch0=I, ch1=Q) is the correct one. The dsd-neo repo's 2-second p25p1_* fixtures were cut from these same files.",
+  "caveats": [
+   "24 kS/s sample rate and 24-bit depth are unusual: loaders must handle 24-bit PCM",
+   "not wideband"
+  ],
+  "status": "verified",
+  "path": "iq_p25p1_cqpsk_vc_91fe5105_24k/P25_CQPSK-VC_91FE5105_IF.wav",
+  "size_bytes": 2525400,
+  "sha256": "baec0f488a0879bf61d6b999f3d8de7f976a3f987f31efa7935e8496d477e3a4",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s24",
+  "channels": 2,
+  "sample_rate_hz": 24000.0,
+  "wav_auxi_center_hz": 852225000,
+  "duration_s": 17.536,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "P25_CQPSK-VC_91FE5105_IF.wav",
+   "dsd_neo_decode.txt",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_p25p1_c4fm_vc_24k",
+  "file": "P25-C4FM-VC_IF.wav",
+  "source_url": "https://www.sigidwiki.com/images/2/25/P25-C4FM-VC_IF.wav",
+  "source_ref": "Signal Identification Wiki ('IF' complex baseband recording, 24 kS/s, 24-bit PCM stereo)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "1c7132e96f16e410724c76aa40f090d1a965f2a47c8e3f205ccbba563f06f58c",
+  "kind": "narrowband_iq",
+  "derivation": "unchanged",
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 C4FM voice channel",
+    "notes": "NAC 0x293, 19 syncs"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 --iq-replay (WAV resampled 24k->48k, cu8 + sidecar)",
+   "log": "dsd_neo_decode.txt",
+   "summary": "NAC 0x293, 19 syncs"
+  },
+  "verification": "dsd-neo decodes the file in stored channel order (NAC 0x293, 19 syncs); with I/Q swapped it finds no sync - so the stored order (ch0=I, ch1=Q) is the correct one. The dsd-neo repo's 2-second p25p1_* fixtures were cut from these same files.",
+  "caveats": [
+   "24 kS/s sample rate and 24-bit depth are unusual: loaders must handle 24-bit PCM",
+   "not wideband"
+  ],
+  "status": "verified",
+  "path": "iq_p25p1_c4fm_vc_24k/P25-C4FM-VC_IF.wav",
+  "size_bytes": 1198296,
+  "sha256": "1c7132e96f16e410724c76aa40f090d1a965f2a47c8e3f205ccbba563f06f58c",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s24",
+  "channels": 2,
+  "sample_rate_hz": 24000.0,
+  "wav_auxi_center_hz": 855587500,
+  "duration_s": 8.32,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "P25-C4FM-VC_IF.wav",
+   "dsd_neo_decode.txt",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_p25p1_wide_vc_24k",
+  "file": "P25_WIDE-VC_IF.wav",
+  "source_url": "https://www.sigidwiki.com/images/6/6c/P25_WIDE-VC_IF.wav",
+  "source_ref": "Signal Identification Wiki ('IF' complex baseband recording, 24 kS/s, 24-bit PCM stereo)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "a7333b6608ca72b833633cf2712dd2ac716ba8a4611b8985128a180e39a3bb54",
+  "kind": "narrowband_iq",
+  "derivation": "unchanged",
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 12500,
+    "kind": "P25 Phase 1 voice, \"WIDE\" pulse-shaping variant",
+    "notes": "NAC 0x293, 29 syncs"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 --iq-replay (WAV resampled 24k->48k, cu8 + sidecar)",
+   "log": "dsd_neo_decode.txt",
+   "summary": "NAC 0x293, 29 syncs"
+  },
+  "verification": "dsd-neo decodes the file in stored channel order (NAC 0x293, 29 syncs); with I/Q swapped it finds no sync - so the stored order (ch0=I, ch1=Q) is the correct one. The dsd-neo repo's 2-second p25p1_* fixtures were cut from these same files.",
+  "caveats": [
+   "24 kS/s sample rate and 24-bit depth are unusual: loaders must handle 24-bit PCM",
+   "not wideband"
+  ],
+  "status": "verified",
+  "path": "iq_p25p1_wide_vc_24k/P25_WIDE-VC_IF.wav",
+  "size_bytes": 970968,
+  "sha256": "a7333b6608ca72b833633cf2712dd2ac716ba8a4611b8985128a180e39a3bb54",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s24",
+  "channels": 2,
+  "sample_rate_hz": 24000.0,
+  "wav_auxi_center_hz": 855587500,
+  "duration_s": 6.741333333333333,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "P25_WIDE-VC_IF.wav",
+   "dsd_neo_decode.txt",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_dmr_sigid_48k",
+  "file": "SDRSharp_20160101_231914Z_12kHz_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/f/f5/DMR.zip",
+  "source_ref": "Signal Identification Wiki DMR example (SDR# IQ, 48 kS/s)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "985c1683a1a1504c850d8dcf8c3492074ff305a56ba80540dbc4b8e8356b1173",
+  "kind": "narrowband_iq",
+  "derivation": "unzipped, unchanged",
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 12500,
+    "kind": "DMR TDMA (MOTOTRBO-style) 4FSK",
+    "notes": "voice/data bursts; Color Code 13 decoded"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 --iq-replay",
+   "log": "dsd_neo_decode.txt",
+   "summary": "DMR syncs: 13 in stored order, 44 with I/Q swapped (CC 13)"
+  },
+  "verification": "dsd-neo syncs DMR in both orders but clearly better (44 vs 13) with I/Q swapped - suggests the recording is spectrally mirrored (frequency-inverted 4FSK) relative to the SDR# convention. dsd-neo may auto-invert, so both are plausible.",
+  "caveats": [
+   "POSSIBLE I/Q SWAP/POLARITY INVERSION (see verification)",
+   "the 12kHz in the file name is the source tuned-frequency field (an IF/baseband source), not an RF frequency; absolute RF frequency unknown"
+  ],
+  "status": "verified",
+  "iq_swap_hint": true,
+  "path": "iq_dmr_sigid_48k/SDRSharp_20160101_231914Z_12kHz_IQ.wav",
+  "size_bytes": 6547244,
+  "sha256": "aeb32d7874979acfa31311f4095fba63a437e219559e1791f0fa7f7f21edf640",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "channels": 2,
+  "sample_rate_hz": 48000.0,
+  "duration_s": 34.1,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf",
+   "possible_iq_order_flip"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "SDRSharp_20160101_231914Z_12kHz_IQ.wav",
+   "dsd_neo_decode.txt",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "audio_p25p2_cc_96k_mono",
+  "file": "P25_Phase_2_TDMA_CC.wav",
+  "source_url": "https://www.sigidwiki.com/images/d/db/P25_Phase_2_TDMA_CC.wav",
+  "source_ref": "Signal Identification Wiki, P25 Phase 2 TDMA control channel discriminator audio (mono, 96 kHz, 16-bit)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "b14a602b296bae9bb81b845a9ab2ffd40ecaf45c75e1649185cf71f247042284",
+  "kind": "audio",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": null,
+    "bandwidth_hz": null,
+    "kind": "P25 Phase 2 (TDMA) control channel, discriminator audio",
+    "notes": "WACN 92715, SYSID 0x1F8, NAC 0x02C, RFSS 044, site 044; LCCH MAC_SIGNAL, MAC_IDLE"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "dsd-neo v2.10.0 -i file.wav -s 96000",
+   "summary": "Sync +P25p2; WACN 92715 SYS 1F8 NAC 02C RFSS 044 Site 044; P25p2 LCCH MAC_SIGNAL x69 in 40 s"
+  },
+  "verification": "dsd-neo decodes the file (DSDPlus-style 96 kHz mono WAV).",
+  "caveats": [
+   "mono discriminator audio, not IQ",
+   "only 5.3 s long"
+  ],
+  "status": "verified",
+  "path": "audio_p25p2_cc_96k_mono/P25_Phase_2_TDMA_CC.wav",
+  "size_bytes": 1017678,
+  "sha256": "b14a602b296bae9bb81b845a9ab2ffd40ecaf45c75e1649185cf71f247042284",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "sample_rate_hz": 96000.0,
+  "channels": 1,
+  "center_freq_hz": null,
+  "duration_s": 5.300177083333334,
+  "iq_swap": false,
+  "tags": [
+   "audio_only"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "P25_Phase_2_TDMA_CC.wav",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "audio_noaa_apt_argentina",
+  "file": "argentina.wav",
+  "source_url": "https://github.com/martinber/noaa-apt/blob/48a9eb8321f722634aafd1f9dcf4d80e9bfe274d/docs/examples/argentina.wav",
+  "source_ref": "git sparse clone of martinber/noaa-apt @48a9eb8 (docs/examples; rendered image argentina.png was in the repo)",
+  "license": "GPL-3.0 (repository LICENSE)",
+  "source_sha256": null,
+  "kind": "audio",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": null,
+    "bandwidth_hz": null,
+    "kind": "NOAA APT audio (2400 Hz AM subcarrier, 2 lines/s)",
+    "notes": "822 s of a pass over Argentina"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "noaa-apt (not run); repo documents the matching image docs/examples/argentina.png",
+   "summary": "n/a"
+  },
+  "verification": "Welch peak at 2399.6 Hz; envelope autocorrelation peak at 0.4996 s (0.733) = exactly the 2 lines/s APT line rate.",
+  "caveats": [
+   "11,025 Hz mono 16-bit audio, not IQ",
+   "18 MB"
+  ],
+  "status": "verified",
+  "path": "audio_noaa_apt_argentina/argentina.wav",
+  "size_bytes": 18134078,
+  "sha256": "50160851becd599796c0603a67c4d6b865cd70a096dca8ae7807dc3d3bd78691",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "sample_rate_hz": 11025.0,
+  "channels": 1,
+  "center_freq_hz": null,
+  "duration_s": 822.4051700680272,
+  "iq_swap": false,
+  "tags": [
+   "audio_only"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "argentina.wav",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_noaa_apt_sigid_192k",
+  "file": "APT_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/0/0d/APT_IQ.zip",
+  "source_ref": "Signal Identification Wiki APT IQ (192 kS/s, 16-bit)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "fe3de7d3767a705997fd21d62060befe2c68bc8ef7373847d22e0ebe067db680",
+  "kind": "narrowband_iq",
+  "derivation": "unzipped (file name APT IQ.wav renamed APT_IQ.wav)",
+  "contents": [
+   {
+    "offset_hz": 0,
+    "bandwidth_hz": 40000,
+    "kind": "NOAA APT (FM-modulated 2400 Hz AM subcarrier)",
+    "notes": "4.1 s"
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "FM discriminator -> audio carrier 2399.4 Hz; envelope autocorrelation peak at 0.500 s (0.871) = APT 2 lines/s.",
+  "caveats": [
+   "4.1 s only"
+  ],
+  "status": "verified",
+  "path": "iq_noaa_apt_sigid_192k/APT_IQ.wav",
+  "size_bytes": 3148844,
+  "sha256": "ba24f0dc6eb9cb464ee35af5e5d378ed94bf9dddb6f7f969530b80891292fc05",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "channels": 2,
+  "sample_rate_hz": 192000.0,
+  "duration_s": 4.1,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "APT_IQ.wav",
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_ais_sigid_48k",
+  "file": "AIS_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/d/d3/AIS_IQ.zip",
+  "source_ref": "Signal Identification Wiki AIS IQ (48 kS/s)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "0daf7e0ea01cd9040a2290c55eb798ebda663131164bdd16e7e9c9d696df74a8",
+  "kind": "narrowband_iq",
+  "derivation": "unzipped (renamed from \"AIS IQ.wav\")",
+  "contents": [
+   {
+    "offset_hz": 234,
+    "bandwidth_hz": 16000,
+    "kind": "AIS GMSK 9600 bd (161.975/162.025 MHz channel)",
+    "notes": "frames short, weak (rms -46.6 dBFS)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "ad-hoc Python FM-demod + NRZI + HDLC + CRC-16 (not a reference AIS decoder)",
+   "summary": "9 HDLC frames with valid FCS in 42.9 s (message types 8/10); semantic decode not trusted"
+  },
+  "verification": "FM demod at 48 kS/s (5 sps), NRZI, HDLC deflag/unstuff, CRC-16/X.25 residue check: 9 frames pass the FCS (random pass probability 1.5e-5 each) => genuine AIS-style HDLC. Message fields not validated (MMSI values looked implausible: likely bit-order issue in my parser).",
+  "caveats": [
+   "low level (rms -46.6 dBFS, 0.05 % zero samples)",
+   "needs a real AIS decoder for confirmation"
+  ],
+  "status": "plausible",
+  "path": "iq_ais_sigid_48k/AIS_IQ.wav",
+  "size_bytes": 8236844,
+  "sha256": "68741465c41abc3f119bf956ce6d6d54e728296f152a0545b38a45afbc91141b",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "channels": 2,
+  "sample_rate_hz": 48000.0,
+  "duration_s": 42.9,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "AIS_IQ.wav",
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_tetra_sigid_48k",
+  "file": "TETRA_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/7/77/TETRA_IQ.zip",
+  "source_ref": "Signal Identification Wiki TETRA IQ (48 kS/s)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "785826dedc7891658dc9b3e608fc7df43efb633c1a62c3228861249eb8ad5e19",
+  "kind": "narrowband_iq",
+  "derivation": "unzipped (renamed from \"TETRA IQ.wav\")",
+  "contents": [
+   {
+    "offset_hz": -100,
+    "bandwidth_hz": 25000,
+    "kind": "TETRA pi/4-DQPSK 36 kbaud carrier (25 kHz channel)",
+    "notes": "flat-top +-12.5 kHz spectrum"
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "Spectrum viewed: flat-topped 25 kHz block with steep +-13 kHz edges and 35 dB roll-off, consistent with TETRA RRC(0.35) at 36 kbaud; no decode (no TETRA decoder).",
+  "caveats": [
+   "needs decoder confirmation"
+  ],
+  "status": "plausible",
+  "path": "iq_tetra_sigid_48k/TETRA_IQ.wav",
+  "size_bytes": 8006444,
+  "sha256": "5d7596866e6a140fbfd543bdf44c26051d715c185e4c8958db7512dbaa276ba6",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "channels": 2,
+  "sample_rate_hz": 48000.0,
+  "duration_s": 41.7,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "TETRA_IQ.wav",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_acars_sigid_135k",
+  "file": "acars_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/0/00/ACARS_IQ.zip",
+  "source_ref": "Signal Identification Wiki ACARS IQ (135.498 kS/s, float32)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "de9ace984b89d119fe7434ad9bf8bee19846d20514f95d17447580df2ed39d61",
+  "kind": "narrowband_iq",
+  "derivation": "unzipped",
+  "contents": [
+   {
+    "offset_hz": -1200,
+    "bandwidth_hz": 2400,
+    "kind": "AM carrier with ACARS MSK (1200/2400 Hz) bursts",
+    "notes": "5 bursts in 3.5 s (t~0.2, 0.9-1.1, 1.4, 1.6, 2.0-2.8 s); 25 kHz channel filter edges at +-13 kHz"
+   },
+   {
+    "offset_hz": 19500,
+    "bandwidth_hz": 300,
+    "kind": "narrow spur",
+    "notes": "also +40 kHz / -22 kHz / -43 kHz weak spurs"
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "Spectrum/waterfall viewed: bursty AM signal inside a 25 kHz filter. Not decoded (acarsdec not built).",
+  "caveats": [
+   "float32 WAV with UNNORMALISED amplitude (peak |x| ~93, rms ~28): scale before feeding code that assumes +-1.0",
+   "needs decoder confirmation"
+  ],
+  "status": "plausible",
+  "path": "iq_acars_sigid_135k/acars_IQ.wav",
+  "size_bytes": 3755405,
+  "sha256": "a9b1ebe8cc37c59f3eabe6e7466c80206c28b04e203771d8e6cf5cf87b1563d5",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_f32",
+  "channels": 2,
+  "sample_rate_hz": 135498.0,
+  "duration_s": 3.4641470722815098,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "acars_IQ.wav",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "iq_vdl2_sigid_48k",
+  "file": "VDL2_IQ.wav",
+  "source_url": "https://www.sigidwiki.com/images/d/df/VDL-M2_IQ.zip",
+  "source_ref": "Signal Identification Wiki VDL Mode 2 IQ (48 kS/s)",
+  "license": "none stated (Signal Identification Wiki publishes no explicit content license; user-contributed recordings; use as internal test input, check before redistributing)",
+  "source_sha256": "c81f78a3b59101eaab0e33739c5b8ea58b9c1b30de688b91b527f85c7399c022",
+  "kind": "narrowband_iq",
+  "derivation": "unzipped (renamed from \"VDL2 IQ.wav\")",
+  "contents": [
+   {
+    "offset_hz": 94,
+    "bandwidth_hz": 19000,
+    "kind": "VDL Mode 2 D8PSK 10.5 kbaud (136.x MHz)",
+    "notes": ""
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "Spectrum viewed only (19 kHz-wide hump); not decoded.",
+  "caveats": [
+   "needs decoder confirmation (dumpvdl2)"
+  ],
+  "status": "plausible",
+  "path": "iq_vdl2_sigid_48k/VDL2_IQ.wav",
+  "size_bytes": 9004844,
+  "sha256": "c91f62874c1faa2aff1bbc5baff54e46cdcadee72283d83ab2a49ff61f229b14",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "channels": 2,
+  "sample_rate_hz": 48000.0,
+  "duration_s": 46.9,
+  "center_freq_hz": null,
+  "iq_swap": false,
+  "tags": [
+   "channelized_iq",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "VDL2_IQ.wav",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "audio_acarsdec_test",
+  "file": "acarsdec_test.wav",
+  "source_url": "https://github.com/TLeconte/acarsdec/blob/339f63eb91a890cfe5b199ad70814cfe86702d1e/test.wav",
+  "source_ref": "git clone of TLeconte/acarsdec @339f63e",
+  "license": "GPL-2.0 (acarsdec repository)",
+  "source_sha256": null,
+  "kind": "audio",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": null,
+    "bandwidth_hz": null,
+    "kind": "ACARS audio, 4 channels (12.5 kHz, 16-bit)",
+    "notes": "AM audio with 2400 bd MSK, presumably the acarsdec self-test input"
+   }
+  ],
+  "expected_decodes": null,
+  "verification": "spectrum only (not decoded: acarsdec not built)",
+  "caveats": [
+   "4-channel WAV, 12,500 Hz: matches acarsdec multi-channel file input; needs decoder confirmation"
+  ],
+  "status": "plausible",
+  "path": "audio_acarsdec_test/acarsdec_test.wav",
+  "size_bytes": 430824,
+  "sha256": "752acabede3f96e8f137567e8218fe3cd9aab61130b9198d0cbce6cf2cf53b80",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "sample_rate_hz": 12500.0,
+  "channels": 4,
+  "center_freq_hz": null,
+  "duration_s": 4.30744,
+  "iq_swap": false,
+  "tags": [
+   "audio_only"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "acarsdec_test.wav",
+   "evidence.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "audio_pocsag512_22050",
+  "file": "POCSAG_sample_-_512_bps.22050.wav",
+  "source_url": "https://github.com/EliasOenal/multimon-ng/tree/0722194b7739748e49f18ac1fc76f236d4ca390d/test/samples/POCSAG_sample_-_512_bps.flac",
+  "source_ref": "multimon-ng test suite sample (FLAC 22.05 kHz mono) converted with ffmpeg to 16-bit WAV; the original FLAC is kept next to it",
+  "license": "GPL-2.0 (multimon-ng repository)",
+  "source_sha256": null,
+  "kind": "audio",
+  "derivation": "ffmpeg -i X.flac -ac 1 -ar 22050 -c:a pcm_s16le (lossless decode)",
+  "contents": [
+   {
+    "offset_hz": null,
+    "bandwidth_hz": null,
+    "kind": "pager audio (AFSK/FSK discriminator audio)",
+    "notes": "POCSAG512: Address: 273040 Function: 3 Alpha: 512 B SIDE ZZZZZZ"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "multimon-ng 1.6.2 (0722194) built locally; upstream expected strings in test/run_tests.sh",
+   "log": "multimon_ng_decode.txt",
+   "summary": "POCSAG512: Address: 273040 Function: 3 Alpha: 512 B SIDE ZZZZZZ"
+  },
+  "verification": "Decoded with the locally built multimon-ng; the first line equals the expected string asserted by upstream's own test suite.",
+  "caveats": [
+   "audio, not IQ; message text is real public pager traffic (Dutch P2000 / test pages)"
+  ],
+  "status": "verified",
+  "path": "audio_pocsag512_22050/POCSAG_sample_-_512_bps.22050.wav",
+  "size_bytes": 196982,
+  "sha256": "3cb1fc016212a0d2ffb2cecdbb4e377c0a730e0967aba8a8204070877d962e08",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "sample_rate_hz": 22050.0,
+  "channels": 1,
+  "center_freq_hz": null,
+  "duration_s": 4.4635827664399095,
+  "iq_swap": false,
+  "tags": [
+   "audio_only"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "POCSAG_sample_-_512_bps.22050.wav",
+   "POCSAG_sample_-_512_bps.flac",
+   "evidence.json",
+   "multimon_ng_decode.txt",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "audio_pocsag1200_22050",
+  "file": "POCSAG_sample_-_1200_bps.22050.wav",
+  "source_url": "https://github.com/EliasOenal/multimon-ng/tree/0722194b7739748e49f18ac1fc76f236d4ca390d/test/samples/POCSAG_sample_-_1200_bps.flac",
+  "source_ref": "multimon-ng test suite sample (FLAC 22.05 kHz mono) converted with ffmpeg to 16-bit WAV; the original FLAC is kept next to it",
+  "license": "GPL-2.0 (multimon-ng repository)",
+  "source_sha256": null,
+  "kind": "audio",
+  "derivation": "ffmpeg -i X.flac -ac 1 -ar 22050 -c:a pcm_s16le (lossless decode)",
+  "contents": [
+   {
+    "offset_hz": null,
+    "bandwidth_hz": null,
+    "kind": "pager audio (AFSK/FSK discriminator audio)",
+    "notes": "POCSAG1200: Address: 273040 Function: 3 Alpha: +++TIME=0008300324 (also Address 671968 Function 1)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "multimon-ng 1.6.2 (0722194) built locally; upstream expected strings in test/run_tests.sh",
+   "log": "multimon_ng_decode.txt",
+   "summary": "POCSAG1200: Address: 273040 Function: 3 Alpha: +++TIME=0008300324 (also Address 671968 Function 1)"
+  },
+  "verification": "Decoded with the locally built multimon-ng; the first line equals the expected string asserted by upstream's own test suite.",
+  "caveats": [
+   "audio, not IQ; message text is real public pager traffic (Dutch P2000 / test pages)"
+  ],
+  "status": "verified",
+  "path": "audio_pocsag1200_22050/POCSAG_sample_-_1200_bps.22050.wav",
+  "size_bytes": 109898,
+  "sha256": "0c747dd9399ec8c3d1d30a1e8104745fe943fb266f14e61f481581548f1e1797",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "sample_rate_hz": 22050.0,
+  "channels": 1,
+  "center_freq_hz": null,
+  "duration_s": 2.488888888888889,
+  "iq_swap": false,
+  "tags": [
+   "audio_only"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "POCSAG_sample_-_1200_bps.22050.wav",
+   "POCSAG_sample_-_1200_bps.flac",
+   "evidence.json",
+   "multimon_ng_decode.txt",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "audio_pocsag2400_22050",
+  "file": "POCSAG_sample_-_2400_bps.22050.wav",
+  "source_url": "https://github.com/EliasOenal/multimon-ng/tree/0722194b7739748e49f18ac1fc76f236d4ca390d/test/samples/POCSAG_sample_-_2400_bps.flac",
+  "source_ref": "multimon-ng test suite sample (FLAC 22.05 kHz mono) converted with ffmpeg to 16-bit WAV; the original FLAC is kept next to it",
+  "license": "GPL-2.0 (multimon-ng repository)",
+  "source_sha256": null,
+  "kind": "audio",
+  "derivation": "ffmpeg -i X.flac -ac 1 -ar 22050 -c:a pcm_s16le (lossless decode)",
+  "contents": [
+   {
+    "offset_hz": null,
+    "bandwidth_hz": null,
+    "kind": "pager audio (AFSK/FSK discriminator audio)",
+    "notes": "POCSAG2400: Address: 1022869 Function: 1 Alpha: +++TIME=0008300324"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "multimon-ng 1.6.2 (0722194) built locally; upstream expected strings in test/run_tests.sh",
+   "log": "multimon_ng_decode.txt",
+   "summary": "POCSAG2400: Address: 1022869 Function: 1 Alpha: +++TIME=0008300324"
+  },
+  "verification": "Decoded with the locally built multimon-ng; the first line equals the expected string asserted by upstream's own test suite.",
+  "caveats": [
+   "audio, not IQ; message text is real public pager traffic (Dutch P2000 / test pages)"
+  ],
+  "status": "verified",
+  "path": "audio_pocsag2400_22050/POCSAG_sample_-_2400_bps.22050.wav",
+  "size_bytes": 70892,
+  "sha256": "1b52943fb6fec31acc2943140a2264f8a48f9bcd217733faec08796bd5b1c089",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "sample_rate_hz": 22050.0,
+  "channels": 1,
+  "center_freq_hz": null,
+  "duration_s": 1.6043990929705216,
+  "iq_swap": false,
+  "tags": [
+   "audio_only"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "POCSAG_sample_-_2400_bps.22050.wav",
+   "POCSAG_sample_-_2400_bps.flac",
+   "evidence.json",
+   "multimon_ng_decode.txt",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "audio_flex1600_p2000_22050",
+  "file": "FLEX_1600_2fsk_P2000_proef_alarm.22050.wav",
+  "source_url": "https://github.com/EliasOenal/multimon-ng/tree/0722194b7739748e49f18ac1fc76f236d4ca390d/test/samples/FLEX_1600_2fsk_P2000_proef_alarm.flac",
+  "source_ref": "multimon-ng test suite sample (FLAC 22.05 kHz mono) converted with ffmpeg to 16-bit WAV; the original FLAC is kept next to it",
+  "license": "GPL-2.0 (multimon-ng repository)",
+  "source_sha256": null,
+  "kind": "audio",
+  "derivation": "ffmpeg -i X.flac -ac 1 -ar 22050 -c:a pcm_s16le (lossless decode)",
+  "contents": [
+   {
+    "offset_hz": null,
+    "bandwidth_hz": null,
+    "kind": "pager audio (AFSK/FSK discriminator audio)",
+    "notes": "88 FLEX lines, e.g. 1600/2 capcode 001120103 ALN \"test\"; 001523020 \"Passage Ambulance Wilhelminabrug Leiden\" (Dutch P2000 proef-alarm)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "multimon-ng 1.6.2 (0722194) built locally; upstream expected strings in test/run_tests.sh",
+   "log": "multimon_ng_decode.txt",
+   "summary": "88 FLEX lines, e.g. 1600/2 capcode 001120103 ALN \"test\"; 001523020 \"Passage Ambulance Wilhelminabrug Leiden\" (Dutch P2000 proef-alarm)"
+  },
+  "verification": "Decoded with the locally built multimon-ng; the first line equals the expected string asserted by upstream's own test suite.",
+  "caveats": [
+   "audio, not IQ; message text is real public pager traffic (Dutch P2000 / test pages)"
+  ],
+  "status": "verified",
+  "path": "audio_flex1600_p2000_22050/FLEX_1600_2fsk_P2000_proef_alarm.22050.wav",
+  "size_bytes": 2276070,
+  "sha256": "9313951ace21ef574439e9e08077311e5189b073a341f50928d740141382ceb9",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "sample_rate_hz": 22050.0,
+  "channels": 1,
+  "center_freq_hz": null,
+  "duration_s": 51.60979591836735,
+  "iq_swap": false,
+  "tags": [
+   "audio_only"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "FLEX_1600_2fsk_P2000_proef_alarm.22050.wav",
+   "FLEX_1600_2fsk_P2000_proef_alarm.flac",
+   "evidence.json",
+   "multimon_ng_decode.txt",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "audio_gsc_22050",
+  "file": "gsc_capture.22050.wav",
+  "source_url": "https://github.com/EliasOenal/multimon-ng/tree/0722194b7739748e49f18ac1fc76f236d4ca390d/test/samples/gsc_capture.flac",
+  "source_ref": "multimon-ng test suite sample (FLAC 22.05 kHz mono) converted with ffmpeg to 16-bit WAV; the original FLAC is kept next to it",
+  "license": "GPL-2.0 (multimon-ng repository)",
+  "source_sha256": null,
+  "kind": "audio",
+  "derivation": "ffmpeg -i X.flac -ac 1 -ar 22050 -c:a pcm_s16le (lossless decode)",
+  "contents": [
+   {
+    "offset_hz": null,
+    "bandwidth_hz": null,
+    "kind": "pager audio (AFSK/FSK discriminator audio)",
+    "notes": "15 GSC lines incl. Address 2345675 Numeric \"555-1234\""
+   }
+  ],
+  "expected_decodes": {
+   "tool": "multimon-ng 1.6.2 (0722194) built locally; upstream expected strings in test/run_tests.sh",
+   "log": "multimon_ng_decode.txt",
+   "summary": "15 GSC lines incl. Address 2345675 Numeric \"555-1234\""
+  },
+  "verification": "Decoded with the locally built multimon-ng; the first line equals the expected string asserted by upstream's own test suite.",
+  "caveats": [
+   "audio, not IQ; message text is real public pager traffic (Dutch P2000 / test pages)"
+  ],
+  "status": "verified",
+  "path": "audio_gsc_22050/gsc_capture.22050.wav",
+  "size_bytes": 1840934,
+  "sha256": "1628190d98284cfece1bb52d0e84df68a540464d0480e55035cd13dcebd58f65",
+  "retrieved": "2026-10-10",
+  "container": "wav",
+  "sample_format": "pcm_s16",
+  "sample_rate_hz": 22050.0,
+  "channels": 1,
+  "center_freq_hz": null,
+  "duration_s": 41.7421768707483,
+  "iq_swap": false,
+  "tags": [
+   "audio_only"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "gsc_capture.22050.wav",
+   "gsc_capture.flac",
+   "multimon_ng_decode.txt",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_124_spider_01_fr_1_433_92m_250k",
+  "file": "01_FR_1_433.92M_250k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/124-spider/01_FR_1_433.92M_250k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -40649.4140625,
+    "bandwidth_hz": 15258.7890625,
+    "kind": "ISM burst: Abarth-124Spider",
+    "notes": "3 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r 01_FR_1_433.92M_250k.cu8",
+   "expected_json": "01_FR_1_433.92M_250k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 3,
+   "models": [
+    "Abarth-124Spider"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 3 message(s) from Abarth-124Spider.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_124_spider_01_fr_1_433_92m_250k/01_FR_1_433.92M_250k.cu8",
+  "size_bytes": 262144,
+  "sha256": "bc6b2b64e5233171c337f5ce0db9c6822fff9706cf4080837b48891cb361ab1e",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.524288,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "01_FR_1_433.92M_250k.cu8",
+   "01_FR_1_433.92M_250k.expected.json",
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_bmw_g4_tpms_g001_433_92m_2500k",
+  "file": "g001_433.92M_2500k.cs16",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/BMW_G4_TPMS/g001_433.92M_2500k.cs16",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 38452.1484375,
+    "bandwidth_hz": 1812744.140625,
+    "kind": "ISM burst: BMW-GEN5",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -R 252 -Y minmax -F json -r g001_433.92M_2500k.cs16",
+   "expected_json": "g001_433.92M_2500k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "BMW-GEN5"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from BMW-GEN5.",
+  "caveats": [
+   "signed 16-bit little-endian",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_bmw_g4_tpms_g001_433_92m_2500k/g001_433.92M_2500k.cs16",
+  "size_bytes": 131072,
+  "sha256": "38bef72491edaadaa903739298f0abc4a6237d98fd46d24d083d2640412bd49c",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cs16",
+  "channels": 2,
+  "sample_rate_hz": 2500000.0,
+  "duration_s": 0.0131072,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "g001_433.92M_2500k.cs16",
+   "g001_433.92M_2500k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_citroen_tpms_gfile001",
+  "file": "gfile001.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/Citroen_TPMS/gfile001.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 42846.6796875,
+    "bandwidth_hz": 15869.140625,
+    "kind": "ISM burst: Citroen",
+    "notes": "3 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r gfile001.cu8",
+   "expected_json": "gfile001.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 3,
+   "models": [
+    "Citroen"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 3 message(s) from Citroen.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_citroen_tpms_gfile001/gfile001.cu8",
+  "size_bytes": 262144,
+  "sha256": "349f6b0c29c2112f2a63cd9efaa7b84c114c0d95fb845d33fce6d26f2cfb1f55",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.524288,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "gfile001.cu8",
+   "gfile001.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_ford_tpms_gfile059",
+  "file": "gfile059.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/Ford_TPMS/gfile059.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 16601.5625,
+    "bandwidth_hz": 11840.8203125,
+    "kind": "ISM burst: Ford",
+    "notes": "3 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r gfile059.cu8",
+   "expected_json": "gfile059.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 3,
+   "models": [
+    "Ford"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 3 message(s) from Ford.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_ford_tpms_gfile059/gfile059.cu8",
+  "size_bytes": 262144,
+  "sha256": "836941a8bdd03f492c3e032ebc363ea49f856016d68e9e79c7948f671fb99c6b",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.524288,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "gfile059.cu8",
+   "gfile059.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_neptune_r900_g001_912m_2048k",
+  "file": "g001_912M_2048k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/Neptune-R900/01/g001_912M_2048k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 395000.0,
+    "bandwidth_hz": 136500.0,
+    "kind": "ISM burst: Neptune-R900",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g001_912M_2048k.cu8",
+   "expected_json": "g001_912M_2048k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Neptune-R900"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Neptune-R900.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_neptune_r900_g001_912m_2048k/g001_912M_2048k.cu8",
+  "size_bytes": 262144,
+  "sha256": "1f344e749e072caf4acf2c36a869551d96089b964f0b3fbab660daf3734d67f7",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 2048000.0,
+  "duration_s": 0.064,
+  "center_freq_hz": 912000000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "g001_912M_2048k.cu8",
+   "g001_912M_2048k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_neptune_r900_g018_912_6m_1000k",
+  "file": "g018_912.6M_1000k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/Neptune-R900/01/g018_912.6M_1000k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -385009.765625,
+    "bandwidth_hz": 18310.546875,
+    "kind": "ISM burst: Neptune-R900",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g018_912.6M_1000k.cu8",
+   "expected_json": "g018_912.6M_1000k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Neptune-R900"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Neptune-R900.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_neptune_r900_g018_912_6m_1000k/g018_912.6M_1000k.cu8",
+  "size_bytes": 131072,
+  "sha256": "1f5aa6074571173b6b706eaf3fd79b35db20d692b4c6bd6b0a127bb40f7b51f4",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 1000000.0,
+  "duration_s": 0.065536,
+  "center_freq_hz": 912600000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "g018_912.6M_1000k.cu8",
+   "g018_912.6M_1000k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_pt2262_gfile001",
+  "file": "gfile001.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/PT2262/01/gfile001.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -83984.375,
+    "bandwidth_hz": 34667.96875,
+    "kind": "ISM burst: Generic-Remote",
+    "notes": "14 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r gfile001.cu8",
+   "expected_json": "gfile001.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 14,
+   "models": [
+    "Generic-Remote"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 14 message(s) from Generic-Remote.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_pt2262_gfile001/gfile001.cu8",
+  "size_bytes": 524288,
+  "sha256": "0c0b5584357dc383c723c60d5643caefaca75c6873ae98b7172a6ef9de929cc6",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 1.048576,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "gfile001.cu8",
+   "gfile001.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_schrader_mrxbc5a4_tpms_g001_433_92m_2048k",
+  "file": "g001_433.92M_2048k.cs8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/Schrader_MRXBC5A4_TPMS/01/g001_433.92M_2048k.cs8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 7000.0,
+    "bandwidth_hz": 228000.0,
+    "kind": "ISM burst: Schrader-MRXBC5A4",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g001_433.92M_2048k.cs8",
+   "expected_json": "g001_433.92M_2048k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Schrader-MRXBC5A4"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Schrader-MRXBC5A4.",
+  "caveats": [
+   "signed 8-bit (HackRF-style cs8)",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_schrader_mrxbc5a4_tpms_g001_433_92m_2048k/g001_433.92M_2048k.cs8",
+  "size_bytes": 76624,
+  "sha256": "efc715f01b2dcc91b32c2a087cfb3c2823620e0270d2b8fc7fa80658e35fc96f",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cs8",
+  "channels": 2,
+  "sample_rate_hz": 2048000.0,
+  "duration_s": 0.01870703125,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "g001_433.92M_2048k.cs8",
+   "g001_433.92M_2048k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_schrader_mrxbc5a4_tpms_g004_433_92m_2048k",
+  "file": "g004_433.92M_2048k.cs16",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/Schrader_MRXBC5A4_TPMS/01/g004_433.92M_2048k.cs16",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 13000.0,
+    "bandwidth_hz": 216500.0,
+    "kind": "ISM burst: Schrader-MRXBC5A4",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g004_433.92M_2048k.cs16",
+   "expected_json": "g004_433.92M_2048k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Schrader-MRXBC5A4"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Schrader-MRXBC5A4.",
+  "caveats": [
+   "signed 16-bit little-endian",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_schrader_mrxbc5a4_tpms_g004_433_92m_2048k/g004_433.92M_2048k.cs16",
+  "size_bytes": 144096,
+  "sha256": "05b86b58a256b623721334fe1e045aa15edd677481ddda56344513eaf039c868",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cs16",
+  "channels": 2,
+  "sample_rate_hz": 2048000.0,
+  "duration_s": 0.01758984375,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "g004_433.92M_2048k.cs16",
+   "g004_433.92M_2048k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_toyota_tpms_0d5aee3_g007_433_92m_250k",
+  "file": "0d5aee3_g007_433.92M_250k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/Toyota_TPMS/02/0d5aee3_g007_433.92M_250k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -42114.2578125,
+    "bandwidth_hz": 15991.2109375,
+    "kind": "ISM burst: Toyota",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r 0d5aee3_g007_433.92M_250k.cu8",
+   "expected_json": "0d5aee3_g007_433.92M_250k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Toyota"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Toyota.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_toyota_tpms_0d5aee3_g007_433_92m_250k/0d5aee3_g007_433.92M_250k.cu8",
+  "size_bytes": 131072,
+  "sha256": "5837b36d265d7d30476fe15cee31afee45b9dfe02fd0fd9eee74279ba28cff73",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.262144,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "0d5aee3_g007_433.92M_250k.cu8",
+   "0d5aee3_g007_433.92M_250k.expected.json",
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_acurite_ext",
+  "file": "ext.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/acurite/Acurite_00275rm/ext.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -20996.09375,
+    "bandwidth_hz": 9643.5546875,
+    "kind": "ISM burst: Acurite-00275rm",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r ext.cu8",
+   "expected_json": "ext.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Acurite-00275rm"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Acurite-00275rm.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_acurite_ext/ext.cu8",
+  "size_bytes": 131072,
+  "sha256": "5114c22cef41888d8e93a1fde4cb77fff6eab408e295454a28ad0d505c8893fd",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.262144,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "ext.cu8",
+   "ext.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_ambient_weather_g002_433_92m_250k",
+  "file": "g002_433.92M_250k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/ambient_weather/03/g002_433.92M_250k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -59326.171875,
+    "bandwidth_hz": 65429.6875,
+    "kind": "ISM burst: Ambientweather-F007TH",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g002_433.92M_250k.cu8",
+   "expected_json": "g002_433.92M_250k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Ambientweather-F007TH"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Ambientweather-F007TH.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_ambient_weather_g002_433_92m_250k/g002_433.92M_250k.cu8",
+  "size_bytes": 262144,
+  "sha256": "e1dc6fcde1c3c3bbb487823c593a9565e7d498dcb369eb3d6c86a7969a0459b0",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.524288,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "g002_433.92M_250k.cu8",
+   "g002_433.92M_250k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_bresser_5in1_g001_868_3m_250k",
+  "file": "g001_868.3M_250k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/bresser_5in1/01/g001_868.3M_250k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -89965.8203125,
+    "bandwidth_hz": 15380.859375,
+    "kind": "ISM burst: Bresser-5in1",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g001_868.3M_250k.cu8",
+   "expected_json": "g001_868.3M_250k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Bresser-5in1"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Bresser-5in1.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_bresser_5in1_g001_868_3m_250k/g001_868.3M_250k.cu8",
+  "size_bytes": 131072,
+  "sha256": "87ef982264b782985188ca3f4d03ddb3ea466bd4c065cdc98e8f1e4e6c74431a",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.262144,
+  "center_freq_hz": 868300000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "g001_868.3M_250k.cu8",
+   "g001_868.3M_250k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_current_cost_cc_2352watt",
+  "file": "cc_2352watt.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/current_cost/01/cc_2352watt.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -14404.296875,
+    "bandwidth_hz": 6469.7265625,
+    "kind": "ISM burst: CurrentCost-TX",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r cc_2352watt.cu8",
+   "expected_json": "cc_2352watt.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "CurrentCost-TX"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from CurrentCost-TX.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_current_cost_cc_2352watt/cc_2352watt.cu8",
+  "size_bytes": 131072,
+  "sha256": "6fa2c07c11f98d1b4455afc4475cf0a44ad1adb0df4cd3751215a85b2b184f3e",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.262144,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "cc_2352watt.cu8",
+   "cc_2352watt.expected.json",
+   "evidence.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_dsc_gfile001",
+  "file": "gfile001.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/dsc/01/gfile001.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 5249.0234375,
+    "bandwidth_hz": 19287.109375,
+    "kind": "ISM burst: DSC-Security",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r gfile001.cu8",
+   "expected_json": "gfile001.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "DSC-Security"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from DSC-Security.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_dsc_gfile001/gfile001.cu8",
+  "size_bytes": 131072,
+  "sha256": "634a7ef1a1164f00fcabeb0c6b9770f612b6a33630258dee431f3d216c9e289f",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.262144,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "gfile001.cu8",
+   "gfile001.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_efergy_e2_classic_gfile001",
+  "file": "gfile001.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/efergy_e2_classic/01/gfile001.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -57739.2578125,
+    "bandwidth_hz": 4272.4609375,
+    "kind": "ISM burst: Efergy-e2CT",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r gfile001.cu8",
+   "expected_json": "gfile001.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Efergy-e2CT"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Efergy-e2CT.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_efergy_e2_classic_gfile001/gfile001.cu8",
+  "size_bytes": 131072,
+  "sha256": "7cf0e562e1f2b3fa34f87b054fcaa45fcf5ac5035122eee2817a9bf2fbef4f05",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.262144,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "gfile001.cu8",
+   "gfile001.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_emontx_g001_2500k",
+  "file": "g001_2500k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/emontx/01/g001_2500k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -26855.46875,
+    "bandwidth_hz": 69580.078125,
+    "kind": "ISM burst: emonTx-Energy",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g001_2500k.cu8",
+   "expected_json": "g001_2500k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "emonTx-Energy"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from emonTx-Energy.",
+  "caveats": [
+   "file name does not carry centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_emontx_g001_2500k/g001_2500k.cu8",
+  "size_bytes": 131072,
+  "sha256": "cb808fe3fc01a002437ad8cd662eab9e3ef24190ec4c95973bd39506a4ea33ff",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 2500000.0,
+  "duration_s": 0.0262144,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "g001_2500k.cu8",
+   "g001_2500k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_ert_g001_912_6m_2400k",
+  "file": "g001_912.6M_2400k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/ert/scm/01/g001_912.6M_2400k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -390820.3125,
+    "bandwidth_hz": 50390.625,
+    "kind": "ISM burst: ERT-SCM",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g001_912.6M_2400k.cu8",
+   "expected_json": "g001_912.6M_2400k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "ERT-SCM"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from ERT-SCM.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_ert_g001_912_6m_2400k/g001_912.6M_2400k.cu8",
+  "size_bytes": 40960,
+  "sha256": "f028c5690a6dd0e4aca3c9cbb32003ec304ff3c00c5f5ce858791d7ece25883c",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 2400000.0,
+  "duration_s": 0.008533333333333334,
+  "center_freq_hz": 912600000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "g001_912.6M_2400k.cu8",
+   "g001_912.6M_2400k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_hanwell_ml4000_g001_434_052m_1000k",
+  "file": "g001_434.052M_1000k.cs8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/hanwell_ml4000/01/g001_434.052M_1000k.cs8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 21972.65625,
+    "bandwidth_hz": 84960.9375,
+    "kind": "ISM burst: Hanwell-ML4000",
+    "notes": "4 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -R 371 -Y minmax -Y magest -Y filter=100 -F json -r g001_434.052M_1000k.cs8",
+   "expected_json": "g001_434.052M_1000k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 4,
+   "models": [
+    "Hanwell-ML4000"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 4 message(s) from Hanwell-ML4000.",
+  "caveats": [
+   "signed 8-bit (HackRF-style cs8)",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_hanwell_ml4000_g001_434_052m_1000k/g001_434.052M_1000k.cs8",
+  "size_bytes": 6399062,
+  "sha256": "c54cc3b3985a73f8f043a87a3d973f618fec746e6cd3e458b2b27eca3fc6a054",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cs8",
+  "channels": 2,
+  "sample_rate_hz": 1000000.0,
+  "duration_s": 3.199531,
+  "center_freq_hz": 434052000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "g001_434.052M_1000k.cs8",
+   "g001_434.052M_1000k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_hideki_ch1_223_73",
+  "file": "ch1_223_73.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/hideki/01/ch1_223_73.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 8789.0625,
+    "bandwidth_hz": 10131.8359375,
+    "kind": "ISM burst: Hideki-TS04",
+    "notes": "3 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r ch1_223_73.cu8",
+   "expected_json": "ch1_223_73.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 3,
+   "models": [
+    "Hideki-TS04"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 3 message(s) from Hideki-TS04.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_hideki_ch1_223_73/ch1_223_73.cu8",
+  "size_bytes": 262144,
+  "sha256": "bbd11f39c1121d89ec10c8d714f682757898eacf67e9f0f7569f562171dbf609",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.524288,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "ch1_223_73.cu8",
+   "ch1_223_73.expected.json",
+   "evidence.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_honeywell_honeywell_001",
+  "file": "honeywell-001.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/honeywell/01/honeywell-001.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -73486.328125,
+    "bandwidth_hz": 12084.9609375,
+    "kind": "ISM burst: Honeywell-Security",
+    "notes": "6 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r honeywell-001.cu8",
+   "expected_json": "honeywell-001.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 6,
+   "models": [
+    "Honeywell-Security"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 6 message(s) from Honeywell-Security.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_honeywell_honeywell_001/honeywell-001.cu8",
+  "size_bytes": 393216,
+  "sha256": "975e2ca86da210c92fd5afd61b605513f3a90a21d3f5d33cc2d9ffce16e4563b",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.786432,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "honeywell-001.cu8",
+   "honeywell-001.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_idm_g001_912_6m_2359_3k",
+  "file": "g001_912.6M_2359.3k.cs16",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/idm/IDM/g001_912.6M_2359.3k.cs16",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 167616.2841796875,
+    "bandwidth_hz": 52416.0888671875,
+    "kind": "ISM burst: IDM, NETIDM",
+    "notes": "2 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g001_912.6M_2359.3k.cs16",
+   "expected_json": "g001_912.6M_2359.3k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 2,
+   "models": [
+    "IDM",
+    "NETIDM"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 2 message(s) from IDM, NETIDM.",
+  "caveats": [
+   "signed 16-bit little-endian",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_idm_g001_912_6m_2359_3k/g001_912.6M_2359.3k.cs16",
+  "size_bytes": 1559084,
+  "sha256": "efde639198d5e65fd4a67598433bc09697ca482fa7fbe406534059e1049203d1",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cs16",
+  "channels": 2,
+  "sample_rate_hz": 2359300.0,
+  "duration_s": 0.16520620523036494,
+  "center_freq_hz": 912600000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "g001_912.6M_2359.3k.cs16",
+   "g001_912.6M_2359.3k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_idm_g010_912_6m_2359_3k",
+  "file": "g010_912.6M_2359.3k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/idm/NetIDM/g010_912.6M_2359.3k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -230400.390625,
+    "bandwidth_hz": 994753.6865234375,
+    "kind": "ISM burst: NETIDM",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -R 161 -F json -r g010_912.6M_2359.3k.cu8",
+   "expected_json": "g010_912.6M_2359.3k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "NETIDM"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from NETIDM.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_idm_g010_912_6m_2359_3k/g010_912.6M_2359.3k.cu8",
+  "size_bytes": 299496,
+  "sha256": "516ae57ab3fe0e27cf27e360943266184268f683da4352dcb8a232b3cf6a96e3",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 2359300.0,
+  "duration_s": 0.06347136862628745,
+  "center_freq_hz": 912600000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "g010_912.6M_2359.3k.cu8",
+   "g010_912.6M_2359.3k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_insteon_g001_915m_1024k",
+  "file": "g001_915M_1024k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/insteon/01/g001_915M_1024k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -79000.0,
+    "bandwidth_hz": 298500.0,
+    "kind": "ISM burst: Insteon",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g001_915M_1024k.cu8",
+   "expected_json": "g001_915M_1024k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Insteon"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Insteon.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_insteon_g001_915m_1024k/g001_915M_1024k.cu8",
+  "size_bytes": 169216,
+  "sha256": "b6e920b8c2cee35b4a2490b82ade60d3576081f8c649655bae058761b605a424",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 1024000.0,
+  "duration_s": 0.082625,
+  "center_freq_hz": 915000000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "g001_915M_1024k.cu8",
+   "g001_915M_1024k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_lacrosse_gfile001",
+  "file": "gfile001.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/lacrosse/04/gfile001.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 1464.84375,
+    "bandwidth_hz": 55419.921875,
+    "kind": "ISM burst: LaCrosse-TX141THBv2",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r gfile001.cu8",
+   "expected_json": "gfile001.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "LaCrosse-TX141THBv2"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from LaCrosse-TX141THBv2.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_lacrosse_gfile001/gfile001.cu8",
+  "size_bytes": 262144,
+  "sha256": "7a74865b17dde9835df70a65c0df69bf01343c58114c769599054e09643c66e5",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.524288,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "gfile001.cu8",
+   "gfile001.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_m_bus_g002_868_95m_1200k",
+  "file": "g002_868.95M_1200k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/m-bus/01/g002_868.95M_1200k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -59765.625,
+    "bandwidth_hz": 243164.0625,
+    "kind": "ISM burst: Wireless-MBus",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g002_868.95M_1200k.cu8",
+   "expected_json": "g002_868.95M_1200k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Wireless-MBus"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Wireless-MBus.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_m_bus_g002_868_95m_1200k/g002_868.95M_1200k.cu8",
+  "size_bytes": 131072,
+  "sha256": "e8be9d8387f41679baba10caf6131cfff1294857a0d8fc553bed84e298d838f8",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 1200000.0,
+  "duration_s": 0.05461333333333333,
+  "center_freq_hz": 868950000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "g002_868.95M_1200k.cu8",
+   "g002_868.95M_1200k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_m_bus_g001_868_9m_1000k",
+  "file": "g001_868.9M_1000k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/m_bus/01/g001_868.9M_1000k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -1464.84375,
+    "bandwidth_hz": 97656.25,
+    "kind": "ISM burst: Wireless-MBus",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -Y minmax -F json -r g001_868.9M_1000k.cu8",
+   "expected_json": "g001_868.9M_1000k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Wireless-MBus"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Wireless-MBus.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_m_bus_g001_868_9m_1000k/g001_868.9M_1000k.cu8",
+  "size_bytes": 131072,
+  "sha256": "0b49712f61b2216f2947490931629813187aaf2d5d6df1c07b515bb82ab0b9df",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 1000000.0,
+  "duration_s": 0.065536,
+  "center_freq_hz": 868900000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "g001_868.9M_1000k.cu8",
+   "g001_868.9M_1000k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_nexus_g027_433_92m_250k",
+  "file": "g027_433.92M_250k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/nexus/03/g027_433.92M_250k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 35522.4609375,
+    "bandwidth_hz": 12084.9609375,
+    "kind": "ISM burst: Nexus-TH",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g027_433.92M_250k.cu8",
+   "expected_json": "g027_433.92M_250k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Nexus-TH"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Nexus-TH.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_nexus_g027_433_92m_250k/g027_433.92M_250k.cu8",
+  "size_bytes": 524288,
+  "sha256": "c537b7416cc710dfd0d666cd8ff406ef24b5c57ea36a3d3a62cff4e12119002a",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 1.048576,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "g027_433.92M_250k.cu8",
+   "g027_433.92M_250k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_oregon_scientific_bthr968",
+  "file": "BTHR968.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/oregon_scientific/BTHR968/BTHR968.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -48217.7734375,
+    "bandwidth_hz": 10131.8359375,
+    "kind": "ISM burst: Oregon-BHTR968",
+    "notes": "2 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r BTHR968.cu8",
+   "expected_json": "BTHR968.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 2,
+   "models": [
+    "Oregon-BHTR968"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 2 message(s) from Oregon-BHTR968.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_oregon_scientific_bthr968/BTHR968.cu8",
+  "size_bytes": 393216,
+  "sha256": "381b5d2b4ea32a37a33cf5380328f2514febc2aeb5b04f0a4897847e08651b5e",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.786432,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "BTHR968.cu8",
+   "BTHR968.expected.json",
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_oregon_scientific_099603a2",
+  "file": "099603a2.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/oregon_scientific/OSv1/099603a2.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -45654.296875,
+    "bandwidth_hz": 10009.765625,
+    "kind": "ISM burst: Oregon-v1",
+    "notes": "2 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r 099603a2.cu8",
+   "expected_json": "099603a2.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 2,
+   "models": [
+    "Oregon-v1"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 2 message(s) from Oregon-v1.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_oregon_scientific_099603a2/099603a2.cu8",
+  "size_bytes": 262144,
+  "sha256": "e9f47bd0d346630ef323fdcbb9238435a36b35fe87c87e1b6fcd0f29c441fee6",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.524288,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "099603a2.cu8",
+   "099603a2.expected.json",
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_prologue_prologue_191_60_ch2",
+  "file": "prologue_191_60_ch2.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/prologue/02/prologue_191_60_ch2.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 12695.3125,
+    "bandwidth_hz": 14160.15625,
+    "kind": "ISM burst: Prologue-TH",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r prologue_191_60_ch2.cu8",
+   "expected_json": "prologue_191_60_ch2.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Prologue-TH"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Prologue-TH.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_prologue_prologue_191_60_ch2/prologue_191_60_ch2.cu8",
+  "size_bytes": 524288,
+  "sha256": "cd915f89d673c762843f06228a7ec8588d77f4c879bb033d537035245192e528",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 1.048576,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "evidence.json",
+   "prologue_191_60_ch2.cu8",
+   "prologue_191_60_ch2.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_silver_spring_mesh_g003_904_4m_1000k",
+  "file": "g003_904.4M_1000k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/silver_spring_mesh/g003_904.4M_1000k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -976.5625,
+    "bandwidth_hz": 111328.125,
+    "kind": "ISM burst: SilverSpring-Mesh",
+    "notes": "2 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -R 383 -F json -r g003_904.4M_1000k.cu8",
+   "expected_json": "g003_904.4M_1000k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 2,
+   "models": [
+    "SilverSpring-Mesh"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 2 message(s) from SilverSpring-Mesh.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_silver_spring_mesh_g003_904_4m_1000k/g003_904.4M_1000k.cu8",
+  "size_bytes": 131072,
+  "sha256": "4cb87e9353a4c3c4a4590a74973b3b0997c38f634836c3afb4698be5c936276b",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 1000000.0,
+  "duration_s": 0.065536,
+  "center_freq_hz": 904400000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "g003_904.4M_1000k.cu8",
+   "g003_904.4M_1000k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_silver_spring_mesh_g007_916_45m_1600k",
+  "file": "g007_916.45M_1600k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/silver_spring_mesh/g007_916.45M_1600k.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -350781.24999999994,
+    "bandwidth_hz": 141015.625,
+    "kind": "ISM burst: SilverSpring-Mesh",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -R 383 -F json -r g007_916.45M_1600k.cu8",
+   "expected_json": "g007_916.45M_1600k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "SilverSpring-Mesh"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from SilverSpring-Mesh.",
+  "caveats": [
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_silver_spring_mesh_g007_916_45m_1600k/g007_916.45M_1600k.cu8",
+  "size_bytes": 131072,
+  "sha256": "60dd7568db4d73480fa63677df271ed022b230cc0e8dce007a11e3d2fde11487",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 1600000.0,
+  "duration_s": 0.04096,
+  "center_freq_hz": 916450000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "g007_916.45M_1600k.cu8",
+   "g007_916.45M_1600k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_thermopro_tp11_gfile001",
+  "file": "gfile001.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/thermopro-tp11/01/gfile001.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": 45654.296875,
+    "bandwidth_hz": 7690.4296875,
+    "kind": "ISM burst: Thermopro-TP11",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r gfile001.cu8",
+   "expected_json": "gfile001.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Thermopro-TP11"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Thermopro-TP11.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_thermopro_tp11_gfile001/gfile001.cu8",
+  "size_bytes": 262144,
+  "sha256": "71f849143ba40d175d26d4ebd56c3e2090891ca9e7929962a06b79da19b9b6a2",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.524288,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "gfile001.cu8",
+   "gfile001.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_typhur_sync_gold_g002_915m_1000k",
+  "file": "g002_915M_1000k.cs16",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/typhur_sync_gold/01/g002_915M_1000k.cs16",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "wideband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -48583.984375,
+    "bandwidth_hz": 145263.671875,
+    "kind": "ISM burst: Typhur-SyncGold",
+    "notes": "1 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r g002_915M_1000k.cs16",
+   "expected_json": "g002_915M_1000k.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 1,
+   "models": [
+    "Typhur-SyncGold"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 1 message(s) from Typhur-SyncGold.",
+  "caveats": [
+   "signed 16-bit little-endian",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_typhur_sync_gold_g002_915m_1000k/g002_915M_1000k.cs16",
+  "size_bytes": 131072,
+  "sha256": "d8534eab91794954cd16e51532c32cc908a82c8ff2f9f7074a8075dd2baffe4c",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cs16",
+  "channels": 2,
+  "sample_rate_hz": 1000000.0,
+  "duration_s": 0.032768,
+  "center_freq_hz": 915000000.0,
+  "rate_center_from_filename": true,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "g002_915M_1000k.cs16",
+   "g002_915M_1000k.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "rtl433_x10_record_x10_b1_on_001",
+  "file": "record-x10-b1-on-001.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/x10/01/record-x10-b1-on-001.cu8",
+  "source_ref": "git sparse clone of merbanan/rtl_433_tests @1aa8c29; expected output = upstream <file>.json (copied as .expected.json); upstream README for the device copied as device_README.md when present",
+  "license": "none stated in repository (no LICENSE file; rtl_433 itself is GPL-2.0); small test captures, internal test use",
+  "source_sha256": null,
+  "kind": "narrowband_iq",
+  "derivation": null,
+  "contents": [
+   {
+    "offset_hz": -14892.578125,
+    "bandwidth_hz": 48828.125,
+    "kind": "ISM burst: X10-RF",
+    "notes": "6 decoded message(s); offset = strongest spectral hump (approximate)"
+   }
+  ],
+  "expected_decodes": {
+   "tool": "rtl_433 d511d8a (built locally, no SDR drivers)",
+   "cmd": "rtl_433 -c 0 -F json -r record-x10-b1-on-001.cu8",
+   "expected_json": "record-x10-b1-on-001.expected.json",
+   "run_output": "rtl_433_run.json",
+   "n_messages": 6,
+   "models": [
+    "X10-RF"
+   ],
+   "match_expected": true
+  },
+  "verification": "rtl_433 output equals upstream expected JSON exactly (time field ignored): 6 message(s) from X10-RF.",
+  "caveats": [
+   "file name does not carry sample rate (assumed 250 kS/s, rtl_433 default) and centre frequency (assumed 433.92 MHz, rtl_433 default) - rate/centre follow rtl_433 convention; confirmed only by the decode matching the expected JSON",
+   "very short capture (single transmission burst train)"
+  ],
+  "status": "verified",
+  "path": "rtl433_x10_record_x10_b1_on_001/record-x10-b1-on-001.cu8",
+  "size_bytes": 393216,
+  "sha256": "f997afe8467f6b48c7402f26c8a37fd59f5faf2d6b4b2ff7eadc7cdaa8d2e81e",
+  "retrieved": "2026-10-10",
+  "container": "raw",
+  "sample_format": "cu8",
+  "channels": 2,
+  "sample_rate_hz": 250000.0,
+  "duration_s": 0.786432,
+  "center_freq_hz": 433920000.0,
+  "rate_center_from_filename": false,
+  "iq_swap": false,
+  "tags": [
+   "ism",
+   "rtl_433",
+   "real_rf"
+  ],
+  "files": [
+   "EXPECTED_CONTENTS.txt",
+   "device_README.md",
+   "evidence.json",
+   "record-x10-b1-on-001.cu8",
+   "record-x10-b1-on-001.expected.json",
+   "rtl_433_run.json",
+   "spectrum.png"
+  ]
+ },
+ {
+  "id": "_rejected/rtl433_lora_lora01_868m_1000k",
+  "path": "_rejected/rtl433_lora_lora01_868m_1000k/lora01_868M_1000k.cu8",
+  "source_url": "https://github.com/merbanan/rtl_433_tests/blob/1aa8c29d6b9383739d1aeed495dbc5069b704392/tests/lora/01/lora01_868M_1000k.cu8",
+  "license": "none stated",
+  "container": "raw",
+  "sample_format": "cu8",
+  "sample_rate_hz": 1000000.0,
+  "channels": 2,
+  "center_freq_hz": 868000000.0,
+  "duration_s": 0.0,
+  "size_bytes": 0,
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "contents": [],
+  "expected_decodes": null,
+  "verification": "file is 0 bytes in the upstream repository (git blob e69de29 = empty blob; verified with git ls-tree -l) - not a download problem",
+  "caveats": [
+   "EMPTY FILE: no LoRa capture available from this source"
+  ],
+  "status": "rejected",
+  "kind": "wideband_iq",
+  "retrieved": "2026-10-10"
+ },
+ {
+  "id": "_rejected/airband_hackrf_119p80_spurs_only",
+  "path": "_rejected/airband_hackrf_119p80_spurs_only/ia1119_air_slice_119.80MHz_2400k.cu8",
+  "source_url": "https://archive.org/download/SDR-IQ-20230609/IQ-2023_06_09.tar",
+  "license": "none stated",
+  "container": "raw",
+  "sample_format": "cu8",
+  "sample_rate_hz": 2400000.0,
+  "channels": 2,
+  "center_freq_hz": 119800000.0,
+  "duration_s": 5.96,
+  "size_bytes": 28608000,
+  "sha256": "a4d3ae9c87a4afa058b9617e0b3b64a0dbb90f23727229f6acc3bcb1359c5819",
+  "contents": [],
+  "expected_decodes": null,
+  "verification": "slice of the 111.9 MHz HackRF capture around 119.8 MHz. All narrow lines (118.088, 119.510, 119.996/120.0, 120.450, 121.555, 121.706 MHz) stayed constant over 12 minutes (sampled every 12 s) - no keyed AM voice; the lines at 108.641/111.002/113.365/115.726/118.088 MHz are spaced exactly 2.362 MHz apart (spur comb), AM demod of them shows no VOR/ILS tones; 119.996 MHz = 6 x 20 MHz (HackRF sample-clock harmonic).",
+  "caveats": [
+   "NOT AIRBAND: content is HackRF spurs, not ATC voice/ACARS; keep only as a negative example for the signal detector"
+  ],
+  "status": "rejected",
+  "kind": "wideband_iq",
+  "retrieved": "2026-10-10"
+ }
+]
