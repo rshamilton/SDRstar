@@ -114,7 +114,11 @@ if grep -q 'Ready\.' "$TMP/gui.log" && [ "$RUN_ALIVE" = 1 ]; then
     LEVEL_GUI="PASS (window up ${SECS}s, $n_loaded/$n_plugins plugins loaded, 'Ready.' logged)"
 else
     say "GUI: NOT AVAILABLE on this machine -- the process $( [ "$RUN_ALIVE" = 1 ] && echo 'stayed up but never logged Ready.' || echo "ended with status ${RUN_STATUS:-?}" )."
-    say "     Most likely there is no window server / GPU session (typical for a CI runner). Last log lines:"
+    if grep -q 'NSGL\|pixel format\|Glfw Error' "$TMP/gui.log"; then
+        say "     GLFW could not create an OpenGL window (typical for a virtualised CI runner without a GPU). Last log lines:"
+    else
+        say "     Most likely there is no window server / GPU session (typical for a CI runner). Last log lines:"
+    fi
     tail -n 8 "$TMP/gui.log" | sed 's/^/     | /' | tee -a "$LOG"
     LEVEL_GUI="NOT AVAILABLE (no usable window server; the process was started but the GUI could not come up)"
 fi
