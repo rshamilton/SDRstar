@@ -177,11 +177,13 @@ void SignalDetector::update(const SpectrumFrame& f, double nowSec) {
 
     // 2) frequency smoothing (boxcar, linear domain) -> dB
     const int w = std::max(1, (int)std::lround(p_.smoothHz / binHz));
-    std::vector<float> sm((size_t)n);
+    std::vector<float>& sm = smScratch_;
+    sm.resize((size_t)n);
     {
         double run = 0;
         int cnt = 0;
-        std::vector<double> prefix((size_t)n + 1, 0.0);
+        std::vector<double>& prefix = prefixScratch_;
+        prefix.assign((size_t)n + 1, 0.0);
         for (int i = 0; i < n; ++i) { prefix[i + 1] = prefix[i] + avgLin_[i]; }
         for (int i = 0; i < n; ++i) {
             int lo = std::max(0, i - w / 2), hi = std::min(n - 1, i + w / 2);
@@ -192,7 +194,8 @@ void SignalDetector::update(const SpectrumFrame& f, double nowSec) {
     }
 
     // 3) noise floor: global robust estimate + gentle local correction
-    std::vector<float> dec;
+    std::vector<float>& dec = decScratch_;
+    dec.clear();
     const int step = std::max(1, n / 4096);
     for (int i = 0; i < n; i += step) { dec.push_back(sm[i]); }
     const double globalFloor = percentile(dec, 0.20);
@@ -202,12 +205,14 @@ void SignalDetector::update(const SpectrumFrame& f, double nowSec) {
     std::vector<double> blockFloor((size_t)nBlocks), blockCenter((size_t)nBlocks);
     for (int b = 0; b < nBlocks; ++b) {
         int lo = b * block, hi = std::min(n, lo + block);
-        std::vector<float> blk(sm.begin() + lo, sm.begin() + hi);
+        std::vector<float>& blk = blkScratch_;
+        blk.assign(sm.begin() + lo, sm.begin() + hi);
         double q = percentile(blk, 0.25);
         blockFloor[b] = std::clamp(q, globalFloor - 3.0, globalFloor + 6.0);
         blockCenter[b] = 0.5 * (lo + hi);
     }
-    std::vector<float> floorDb((size_t)n);
+    std::vector<float>& floorDb = floorScratch_;
+    floorDb.resize((size_t)n);
     for (int i = 0; i < n; ++i) {
         // piecewise-linear interpolation between block centres
         int b = std::min(nBlocks - 1, i / block);

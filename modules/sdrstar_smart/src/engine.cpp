@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <set>
 
 #include <config.h>
 #include <core.h>
@@ -60,6 +61,9 @@ void SmartEngine::loadSettings() {
     json def = json::object();
     def["showLabels"] = true;
     def["autoIdentify"] = true;
+    def["autoDecode"] = false;
+    def["showTips"] = true;
+    def["hiddenTips"] = json::array();
     def["allowHop"] = true;
     def["sensitivityDb"] = 10.0;
     def["channelMapPath"] = "";
@@ -70,6 +74,15 @@ void SmartEngine::loadSettings() {
     try {
         settings_.showLabels = gCfg.conf.value("showLabels", true);
         settings_.autoIdentify = gCfg.conf.value("autoIdentify", true);
+        settings_.autoDecode = gCfg.conf.value("autoDecode", false);
+        settings_.tips.setEnabled(gCfg.conf.value("showTips", true));
+        std::set<std::string> hidden;
+        if (gCfg.conf.contains("hiddenTips") && gCfg.conf["hiddenTips"].is_array()) {
+            for (const auto& k : gCfg.conf["hiddenTips"]) {
+                if (k.is_string()) { hidden.insert(k.get<std::string>()); }
+            }
+        }
+        settings_.tips.setHidden(std::move(hidden));
         settings_.allowHop = gCfg.conf.value("allowHop", true);
         settings_.sensitivityDb = gCfg.conf.value("sensitivityDb", 10.0);
         settings_.channelMapPath = gCfg.conf.value("channelMapPath", std::string());
@@ -85,6 +98,9 @@ void SmartEngine::saveSettings() {
     gCfg.acquire();
     gCfg.conf["showLabels"] = settings_.showLabels;
     gCfg.conf["autoIdentify"] = settings_.autoIdentify;
+    gCfg.conf["autoDecode"] = settings_.autoDecode;
+    gCfg.conf["showTips"] = settings_.tips.enabled();
+    gCfg.conf["hiddenTips"] = json(settings_.tips.hidden());
     gCfg.conf["allowHop"] = settings_.allowHop;
     gCfg.conf["sensitivityDb"] = settings_.sensitivityDb;
     gCfg.conf["channelMapPath"] = settings_.channelMapPath;
@@ -109,6 +125,9 @@ void SmartEngine::start(const std::string& rootDir) {
     std::error_code ec;
     std::filesystem::create_directories(root_ + "/sdrstar_work", ec);
     loadSettings();
+    // SDR++'s ConfigManager only writes the file when asked, or from its auto-save thread: without this the panel's
+    // settings (and the tips the user hid) were never saved, and every start began with the defaults again.
+    gCfg.enableAutoSave();
     dsdPath_ = findHelper("dsd-neo");
     multimonPath_ = findHelper("multimon-ng");
     rtl433Path_ = findHelper("rtl_433");
@@ -139,6 +158,8 @@ void SmartEngine::stop() {
     tap_.stop();
     host_.closeAll();
     voice_.shutdown();
+    gCfg.disableAutoSave();
+    gCfg.save();   // whatever the auto-save thread had not written yet
 }
 
 void SmartEngine::onSpectrum(const float* db, int bins, double center, double span) {
@@ -149,11 +170,18 @@ void SmartEngine::onSpectrum(const float* db, int bins, double center, double sp
     f.spanHz = span;
     std::lock_guard<std::mutex> lk(detMtx_);
     det_.update(f, nowSec());
+    publishSignalsLocked();
 }
 
-std::vector<DetectedSignal> SmartEngine::signals() const {
+void SmartEngine::publishSignalsLocked() {
+    signalSnapshot_ = std::make_shared<const std::vector<DetectedSignal>>(det_.signals());
+}
+
+// The detector only changes a few times a second, but the UI asks every frame: hand out the last published snapshot
+// instead of copying every signal (and its strings) 60 times a second.
+SmartEngine::SignalList SmartEngine::signals() const {
     std::lock_guard<std::mutex> lk(detMtx_);
-    return det_.signals();
+    return signalSnapshot_ ? signalSnapshot_ : std::make_shared<const std::vector<DetectedSignal>>();
 }
 
 double SmartEngine::noiseFloorDb() const {
@@ -188,6 +216,7 @@ void SmartEngine::updateCursor(double now) {
     }
     if (valid != cursorValid_ || std::fabs(abs - cursorFreq_) > 50.0 || std::fabs(bw - cursorBw_) > 50.0) {
         cursorSince_ = now;
+        autoGate_.cursorMoved();
         if (dismissed_ && std::fabs(abs - dismissedFreq_) > 2500.0) { dismissed_ = false; }
     }
     cursorValid_ = valid;
@@ -244,6 +273,7 @@ void SmartEngine::tick() {
     updateCursor(now);
     pollProbe(now);
     autoProbe(now);
+    maybeAutoDecode(now);
     // A job listening on one fixed frequency is useless once the user moves the window away from it: say so and stop.
     if (job_ == JobKind::Probing || job_ == JobKind::Decoding || job_ == JobKind::Helper) {
         if (!sdrstar::channelFits(host_.caps(), host_.centerHz(), sdrstar::WindowChannel{jobFreq_, jobBw_, ""})) {
@@ -286,6 +316,7 @@ void SmartEngine::pollProbe(double now) {
     if (p.best.claimed) {
         std::lock_guard<std::mutex> lk(detMtx_);
         det_.setIdentified(jobFreq_, p.best.title, p.best.detail);
+        publishSignalsLocked();
         noClaimCount_.erase(keyFor(jobFreq_));
     } else {
         // Back off: 1.5 min, 4.5 min, 13 min, then once an hour.  An analog channel that is always on would otherwise
@@ -295,6 +326,42 @@ void SmartEngine::pollProbe(double now) {
         noClaimUntil_[keyFor(jobFreq_)] = now + wait;
     }
     job_ = JobKind::None;
+    // Auto-decode, situation 2: the user pressed Identify (a background check is never "asked for") and it found a
+    // protocol while the cursor is still on that signal.
+    if (!jobAutomatic_) {
+        const double reach = std::max(8000.0, cursorBw_ * 1.3);
+        const bool cursorThere = cursorValid_ && std::fabs(cursorFreq_ - r.freqHz) <= reach;
+        if (autoGate_.identifyFinished(settings_.autoDecode, p.best.claimed, cursorThere)) {
+            addNote("Auto-decode: starting " + r.verdict.title);
+            startFromResult(r);
+        }
+    }
+}
+
+// Auto-decode, situation 1: the cursor has rested on an already identified signal.
+void SmartEngine::maybeAutoDecode(double now) {
+    if (!settings_.autoDecode || !cursorValid_ || dsdPath_.empty()) { return; }
+    // Never interrupt something the user is doing; only a quiet background check may be replaced.
+    const bool idle = job_ == JobKind::None || (job_ == JobKind::Probing && jobAutomatic_);
+    if (!idle || now - cursorSince_ < sdrstar::AutoDecodeGate::kRestSec) { return; }
+    if (now - lastAutoDecodeCheckSec_ < 0.1) { return; }
+    lastAutoDecodeCheckSec_ = now;
+    DetectedSignal sig;
+    if (!nearestSignal(cursorFreq_, cursorBw_, sig)) { return; }
+    const StoredResult* r = resultFor(sig.freqHz);
+    const bool identified = r && r->verdict.claimed;
+    if (!autoGate_.shouldStartFromCursor(true, now - cursorSince_, idle, identified)) { return; }
+    StoredResult copy = *r;
+    addNote("Auto-decode: starting " + copy.verdict.title);
+    startFromResult(copy);
+}
+
+void SmartEngine::startFromResult(const StoredResult& r) {
+    if (r.verdict.controlChannel) {
+        startFollow(r);
+    } else {
+        startDecode(r);
+    }
 }
 
 void SmartEngine::autoProbe(double now) {
@@ -302,7 +369,8 @@ void SmartEngine::autoProbe(double now) {
     if (now - lastAutoScanSec_ < 1.0) { return; }
     lastAutoScanSec_ = now;
     if (now - lastAutoProbeSec_ < 4.0) { return; }
-    std::vector<DetectedSignal> sigs = signals();
+    const SignalList sigsPtr = signals();
+    const std::vector<DetectedSignal>& sigs = *sigsPtr;
     // A frequency that has been empty for a while is a different story when something shows up there again.
     for (const auto& s : sigs) { bucketSeenSec_[keyFor(s.freqHz)] = now; }
     for (auto it = bucketSeenSec_.begin(); it != bucketSeenSec_.end();) {
@@ -346,6 +414,8 @@ void SmartEngine::startProbe(double freqHz, double bwHz, bool automatic) {
     c.dsdExe = dsdPath_;
     c.workDir = root_ + "/sdrstar_work";
     c.durationSec = 5.0;
+    // A quiet background check yields to the GUI and the radio's DSP; one the user asked for runs at full priority.
+    c.niceLevel = automatic ? 10 : 0;
     std::string err;
     auto presets = candidatePresetsFor(bwHz, freqHz);
     if (!probe_.start(&host_, freqHz, presets, c, err)) {
@@ -366,7 +436,9 @@ void SmartEngine::identifyAtCursor() {
     if (!cursorValid_) { return; }
     double f = snapFrequency(cursorFreq_, cursorBw_);
     results_.erase(keyFor(f));
+    autoGate_.identifyCancelled();
     startProbe(f, std::min(cursorBw_, 25000.0), false);
+    if (job_ == JobKind::Probing && !jobAutomatic_) { autoGate_.identifyRequested(); }
 }
 
 // ------------------------------------------------------------------------------------------------------------
@@ -391,7 +463,10 @@ void SmartEngine::setRadioMode(int mode, float bandwidth) {
 
 void SmartEngine::stopJob() {
     switch (job_) {
-    case JobKind::Probing: probe_.cancel(); break;
+    case JobKind::Probing:
+        probe_.cancel();
+        if (!jobAutomatic_) { autoGate_.identifyCancelled(); }
+        break;
     case JobKind::Following: follower_.stop(); break;
     case JobKind::Decoding: decoder_.stop(); break;
     case JobKind::Helper: helper_.stop(); break;
@@ -514,11 +589,18 @@ void SmartEngine::startHelper(const std::string& id, double freqHz) {
     jobTitle_ = sp->title;
 }
 
-void SmartEngine::doAction(CardAction a) {
+void SmartEngine::doAction(CardAction a, const std::string& arg) {
+    // Whatever the user chooses by hand wins over auto-decode for as long as the cursor stays where it is.
+    switch (a) {
+    case ACT_FOLLOW: case ACT_DECODE: case ACT_STOP: case ACT_LISTEN_NFM: case ACT_LISTEN_WFM: case ACT_LISTEN_AM:
+    case ACT_HELPER_APRS: case ACT_HELPER_EAS: case ACT_HELPER_ISM: case ACT_HELPER_ADSB:
+        autoGate_.disarm();
+        break;
+    default: break;
+    }
     switch (a) {
     // Text decoders listen exactly where the user put the VFO (the detector can merge neighbouring bursts into one
     // wide "signal", so its centre is not a safe place to listen).
-    case ACT_HELPER_PAGER: startHelper("pager", cursorFreq_); break;
     case ACT_HELPER_APRS: startHelper("aprs", cursorFreq_); break;
     case ACT_HELPER_EAS: startHelper("eas", cursorFreq_); break;
     case ACT_HELPER_ISM: startHelper("ism", cursorFreq_); break;
@@ -560,12 +642,27 @@ void SmartEngine::doAction(CardAction a) {
         break;
     case ACT_STOP: stopJob(); break;
     case ACT_DISMISS: dismissCard(); break;
+    case ACT_HIDE_TIP: hideTip(arg); break;
     case ACT_TOGGLE_HOP:
         settings_.allowHop = !settings_.allowHop;
         settingsChanged();
         break;
     default: break;
     }
+}
+
+// A hidden tip is the user's decision "never show this again": it is written to disk right away, not left to the
+// auto-save timer, so it survives even a crash a moment later.
+void SmartEngine::hideTip(const std::string& key) {
+    settings_.tips.hide(key);
+    saveSettings();
+    gCfg.save();
+}
+
+void SmartEngine::restoreTips() {
+    settings_.tips.restoreAll();
+    saveSettings();
+    gCfg.save();
 }
 
 std::string SmartEngine::decoderStatusLine() {
@@ -690,7 +787,8 @@ std::vector<CardButton> SmartEngine::helperButtonsFor(double f) const {
         const bool ok = helperAvailable(id);
         v.push_back({act, ok ? std::string(label) : std::string(label) + " (helper missing)", false, ok});
     };
-    add("pocsag", "pager", ACT_HELPER_PAGER, "Read pager messages");
+    // (Pager messages are started from the "Text decoders" section of the SDRstar panel, not from every card in a
+    // pager band: that band overlaps ordinary voice channels, so the button would sit on far too many cards.)
     add("aprs", "aprs", ACT_HELPER_APRS, "Decode APRS");
     add("eas", "eas", ACT_HELPER_EAS, "Read weather alerts");
     add("ism", "ism", ACT_HELPER_ISM, "Read sensors");
@@ -700,6 +798,10 @@ std::vector<CardButton> SmartEngine::helperButtonsFor(double f) const {
 
 CardModel SmartEngine::buildCursorCard() {
     CardModel m;
+    // Explanatory text the user may have hidden: skipped here, so every caller just adds tips without checking.
+    auto tip = [&](const char* key, const std::string& text) {
+        if (!text.empty() && settings_.tips.visible(key)) { m.tips.push_back({key, text}); }
+    };
     // --- otherwise: a card for the signal under the cursor, once the cursor has rested on it ---
     if (!cursorValid_ || dismissed_) { return m; }
     if (nowSec() - cursorSince_ < 0.45) { return m; }
@@ -715,7 +817,7 @@ CardModel SmartEngine::buildCursorCard() {
         m.title = r->verdict.title;
         m.subtitle = r->verdict.detail.empty() ? mhz(sig.freqHz) : r->verdict.detail;
         if (r->verdict.controlChannel) {
-            m.lines.push_back("This is a trunked system. Following it moves the receiver to each call's voice channel.");
+            tip("trunked-system", "This is a trunked system. Following it moves the receiver to each call's voice channel.");
             m.buttons.push_back({ACT_FOLLOW, "Follow trunked system", true, true});
         } else {
             m.buttons.push_back({ACT_DECODE, "Decode and listen", true, true});
@@ -725,7 +827,7 @@ CardModel SmartEngine::buildCursorCard() {
         m.tone = CardTone::Attention;
         m.title = "No digital protocol recognised";
         m.subtitle = mhz(sig.freqHz) + "  \xC2\xB7  " + formatSpan(sig.bwHz) + " wide  \xC2\xB7  " + std::to_string((int)std::lround(sig.snrDb)) + " dB above noise";
-        m.lines.push_back("Could be analog voice, an encrypted or unsupported mode, or too weak to decode.");
+        tip("no-protocol", "Could be analog voice, an encrypted or unsupported mode, or too weak to decode.");
         m.buttons.push_back({ACT_LISTEN_NFM, "Listen as FM", true, true});
         m.buttons.push_back({ACT_IDENTIFY, "Try again", false, !dsdPath_.empty()});
     } else {
@@ -734,8 +836,8 @@ CardModel SmartEngine::buildCursorCard() {
         std::snprintf(buf, sizeof buf, "%s  \xC2\xB7  %s  \xC2\xB7  %d dB", mhz(sig.freqHz).c_str(), formatSpan(sig.bwHz).c_str(), (int)std::lround(sig.snrDb));
         m.subtitle = buf;
         m.title = sig.label;
-        if (!sig.hint.empty()) { m.lines.push_back("Band: " + sig.hint); }
-        if (!sig.note.empty()) { m.lines.push_back(sig.note); }
+        if (!sig.hint.empty()) { tip("band-hint", "Band: " + sig.hint); }
+        tip("signal-note", sig.note);
         if (sig.kind == SignalKind::WideFM && bandSuggests(sig.freqHz, "wfm")) {
             m.buttons.push_back({ACT_LISTEN_WFM, "Listen (wide FM)", true, true});
         } else if (bandSuggests(sig.freqHz, "am") && !bandSuggests(sig.freqHz, "nfm") && !bandSuggests(sig.freqHz, "p25")) {
@@ -744,7 +846,7 @@ CardModel SmartEngine::buildCursorCard() {
             m.buttons.push_back({ACT_IDENTIFY, dsdPath_.empty() ? "Identify (decoder missing)" : "Identify digital signal", true, !dsdPath_.empty()});
             m.buttons.push_back({ACT_LISTEN_NFM, "Listen as FM", false, true});
         } else if (sig.kind == SignalKind::Channel25k) {
-            m.lines.push_back("Wide digital modes (e.g. TETRA) are not decoded yet.");
+            tip("wide-digital", "Wide digital modes (e.g. TETRA) are not decoded yet.");
             m.buttons.push_back({ACT_LISTEN_NFM, "Listen as FM", false, true});
         }
     }

@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include <sdrstar/card_prefs.h>
 #include <sdrstar/channel_decoder.h>
 #include <sdrstar/helper_decoder.h>
 #include <sdrstar/probe_manager.h>
@@ -34,12 +35,12 @@ enum CardAction {
     ACT_DISMISS,
     ACT_TOGGLE_HOP,
     ACT_CENTER,
-    ACT_HELPER_PAGER,
     ACT_HELPER_APRS,
     ACT_HELPER_EAS,
     ACT_HELPER_ISM,
     ACT_HELPER_ADSB,
-    ACT_RETURN,   // put the receiver window back on the trunk's control channel
+    ACT_RETURN,     // put the receiver window back on the trunk's control channel
+    ACT_HIDE_TIP,   // hide one explanatory tip for good (the tip's key is the action's argument)
 };
 
 struct CardButton {
@@ -51,12 +52,19 @@ struct CardButton {
 
 enum class CardTone { Info, Working, Good, Attention, Problem };
 
+// An explanatory sentence the user can hide for good (a small "x" next to it).  `key` names the kind of tip.
+struct CardTip {
+    std::string key;
+    std::string text;
+};
+
 struct CardModel {
     bool visible = false;
     CardTone tone = CardTone::Info;
     std::string title;
     std::string subtitle;
-    std::vector<std::string> lines;   // extra info lines (grey)
+    std::vector<std::string> lines;   // extra info lines (grey): status, never dismissible
+    std::vector<CardTip> tips;        // explanatory text (grey, with a hide-for-good "x")
     std::string warning;              // red line ("" = none)
     float progress = -1.0f;           // 0..1, or < 0 for none
     std::vector<CardButton> buttons;
@@ -68,6 +76,8 @@ struct CardModel {
 struct EngineSettings {
     bool showLabels = true;
     bool autoIdentify = true;     // quietly identify steady narrowband signals as they appear
+    bool autoDecode = false;      // start decoding an identified signal as soon as the cursor rests on it / Identify finds it
+    sdrstar::TipPrefs tips;       // explanatory text in the cards: on/off and which ones the user hid for good
     bool allowHop = true;         // follow calls that need the receiver to leave the control channel
     double sensitivityDb = 10.0;  // detection margin above the noise floor
     std::string channelMapPath;   // CSV for DMR / NXDN / EDACS trunking
@@ -89,7 +99,8 @@ public:
     void tick();
 
     // data for the UI (GUI thread)
-    std::vector<sdrstar::DetectedSignal> signals() const;
+    using SignalList = std::shared_ptr<const std::vector<sdrstar::DetectedSignal>>;
+    SignalList signals() const;                 // snapshot, refreshed with every spectrum; cheap to take every frame
     CardModel card();                           // card for the cursor / active job
     JobKind jobKind() const { return job_; }
     sdrstar::FollowStatus followStatus() const { return follower_.status(); }
@@ -108,11 +119,13 @@ public:
     std::string helperTitle() const { return job_ == JobKind::Helper ? jobTitle_ : std::string(); }
 
     // user actions
-    void doAction(CardAction a);
+    void doAction(CardAction a, const std::string& arg = std::string());
     void identifyAtCursor();
     EngineSettings& settings() { return settings_; }
     void settingsChanged();   // push settings into the detector / follower and save
     void dismissCard() { dismissedFreq_ = cursorFreq_; dismissed_ = true; }
+    void hideTip(const std::string& key);   // never show this tip again (saved)
+    void restoreTips();                     // show every tip again (saved)
 
     // cursor info
     bool cursorValid() const { return cursorValid_; }
@@ -131,6 +144,9 @@ private:
     void updateCursor(double now);
     void pollProbe(double now);
     void autoProbe(double now);
+    void maybeAutoDecode(double now);
+    void startFromResult(const StoredResult& r);   // follow (control channel) or decode (anything else) an identified signal
+    void publishSignalsLocked();                   // refresh the snapshot handed to the UI (detMtx_ held)
     void startProbe(double freqHz, double bwHz, bool automatic);
     CardModel buildCursorCard();
     std::vector<CardButton> helperButtonsFor(double freqHz) const;
@@ -154,6 +170,7 @@ private:
     VoiceOut voice_;
     mutable std::mutex detMtx_;
     sdrstar::SignalDetector det_;
+    SignalList signalSnapshot_;
     sdrstar::ProbeManager probe_;
     sdrstar::TrunkFollower follower_;
     sdrstar::ChannelDecoder decoder_;
@@ -178,6 +195,8 @@ private:
     std::map<long long, double> bucketSeenSec_;  // last time a tracked signal was on this bucket (to forget stale cooldowns)
     double lastAutoProbeSec_ = 0;
     double lastAutoScanSec_ = 0;
+    double lastAutoDecodeCheckSec_ = 0;
+    sdrstar::AutoDecodeGate autoGate_;
     std::vector<std::string> notes_;
 
     // cursor (selected VFO) tracking

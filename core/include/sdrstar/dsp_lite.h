@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace sdrstar {
@@ -44,26 +45,72 @@ inline bool readCu8(const std::string& path, std::vector<cf>& out, size_t maxSam
 // ---- FFT ---------------------------------------------------------------------------------------------------
 inline bool isPow2(size_t n) { return n && !(n & (n - 1)); }
 
-// In-place iterative radix-2 FFT (forward).  n must be a power of two.
+namespace detail {
+// Twiddle factors and bit-reversal order for one FFT size.  The analysis code runs the same size over and over (the
+// spectrum tap does thousands of 16384-point FFTs), so they are built once per thread and size, in double precision
+// (a running product of float twiddles drifts over thousands of steps).  Twiddles are stored per stage, contiguous:
+// the stage with half-length h uses wr/wi[h + k], k < h.
+struct FftPlan {
+    size_t n = 0;
+    std::vector<float> wr, wi;
+    std::vector<uint32_t> rev;
+};
+
+inline const FftPlan& fftPlan(size_t n) {
+    thread_local FftPlan plan;
+    if (plan.n == n) { return plan; }
+    plan.n = n;
+    plan.wr.assign(n, 0.0f);
+    plan.wi.assign(n, 0.0f);
+    for (size_t half = 1; half < n; half <<= 1) {
+        for (size_t k = 0; k < half; ++k) {
+            const double ang = -kPi * (double)k / (double)half;   // -2*pi*k/len with len = 2*half
+            plan.wr[half + k] = (float)std::cos(ang);
+            plan.wi[half + k] = (float)std::sin(ang);
+        }
+    }
+    plan.rev.assign(n, 0);
+    size_t bits = 0;
+    while (((size_t)1 << bits) < n) { ++bits; }
+    for (size_t i = 0; i < n; ++i) {
+        size_t r = 0;
+        for (size_t b = 0; b < bits; ++b) { r |= ((i >> b) & 1u) << (bits - 1 - b); }
+        plan.rev[i] = (uint32_t)r;
+    }
+    return plan;
+}
+}  // namespace detail
+
+// In-place iterative radix-2 FFT (forward).  n must be a power of two (anything else is left unchanged).
+// Real/imaginary parts are multiplied out by hand: std::complex's operator* also checks for NaN results (a library call
+// when it fails), which makes it several times slower than the four multiplications it stands for.
 inline void fft(std::vector<cf>& a) {
     const size_t n = a.size();
-    for (size_t i = 1, j = 0; i < n; ++i) {
-        size_t bit = n >> 1;
-        for (; j & bit; bit >>= 1) { j ^= bit; }
-        j ^= bit;
-        if (i < j) { std::swap(a[i], a[j]); }
+    if (n < 2 || !isPow2(n)) { return; }
+    const detail::FftPlan& pl = detail::fftPlan(n);
+    float* d = reinterpret_cast<float*>(a.data());
+    for (size_t i = 0; i < n; ++i) {
+        const size_t j = pl.rev[i];
+        if (i < j) {
+            std::swap(d[2 * i], d[2 * j]);
+            std::swap(d[2 * i + 1], d[2 * j + 1]);
+        }
     }
-    for (size_t len = 2; len <= n; len <<= 1) {
-        const double ang = -2.0 * kPi / (double)len;
-        const cf wl((float)std::cos(ang), (float)std::sin(ang));
-        for (size_t i = 0; i < n; i += len) {
-            cf w(1.0f, 0.0f);
-            for (size_t k = 0; k < len / 2; ++k) {
-                cf u = a[i + k];
-                cf v = a[i + k + len / 2] * w;
-                a[i + k] = u + v;
-                a[i + k + len / 2] = u - v;
-                w *= wl;
+    for (size_t half = 1; half < n; half <<= 1) {
+        const float* wr = pl.wr.data() + half;
+        const float* wi = pl.wi.data() + half;
+        for (size_t i = 0; i < n; i += 2 * half) {
+            float* p = d + 2 * i;
+            float* q = d + 2 * (i + half);
+            for (size_t k = 0; k < half; ++k) {
+                const float xr = q[2 * k], xi = q[2 * k + 1];
+                const float vr = xr * wr[k] - xi * wi[k];
+                const float vi = xr * wi[k] + xi * wr[k];
+                const float ur = p[2 * k], ui = p[2 * k + 1];
+                p[2 * k] = ur + vr;
+                p[2 * k + 1] = ui + vi;
+                q[2 * k] = ur - vr;
+                q[2 * k + 1] = ui - vi;
             }
         }
     }

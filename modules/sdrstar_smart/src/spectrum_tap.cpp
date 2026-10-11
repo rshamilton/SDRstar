@@ -54,7 +54,18 @@ void SpectrumTap::onBlock(dsp::complex_t* data, int count, void* ctx) {
         t->capCenter_ = gui::waterfall.getCenterFrequency();
         t->capRate_ = sigpath::iqFrontEnd.getSampleRate();
         t->fftSize_ = pickFftSize(t->capRate_);
-        t->segs_.assign(kSegments, std::vector<sdrstar::cf>(t->fftSize_));
+        {
+            // Reuse the buffers the worker has finished with: a fresh allocation (and its zero-fill and page faults)
+            // for every snapshot would happen on SDR++'s DSP thread.
+            std::lock_guard<std::mutex> lk(t->mtx_);
+            if (!t->pool_.empty()) {
+                t->segs_.swap(t->pool_);
+                t->pool_.clear();
+            }
+        }
+        if (t->segs_.size() != (size_t)kSegments || t->segs_[0].size() != t->fftSize_) {
+            t->segs_.assign(kSegments, std::vector<sdrstar::cf>(t->fftSize_));
+        }
     }
     int i = 0;
     while (i < count && t->segCount_ < kSegments) {
@@ -119,5 +130,9 @@ void SpectrumTap::workerLoop() {
         db.resize(n);
         for (size_t i = 0; i < n; ++i) { db[i] = 10.0f * std::log10((float)(acc[i] / (double)segs.size() / wpow) + 1e-20f); }
         if (cb_) { cb_(db.data(), (int)n, center, rate); }
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            pool_.swap(segs);
+        }
     }
 }

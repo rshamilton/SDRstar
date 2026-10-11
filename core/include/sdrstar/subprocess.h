@@ -32,6 +32,7 @@ public:
         bool captureStdout = true;
         bool captureStderr = true;
         bool feedStdin = true;
+        int niceLevel = 0;                        // > 0: run the child at a lower CPU priority (0 = same as the host)
     };
 
     using DataCb = std::function<void(const uint8_t* data, size_t len)>;

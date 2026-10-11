@@ -23,7 +23,8 @@ dragging the cursor, the left-hand panels, the demodulators, the recorder. This 
 | **Title** (e.g. "P25 Phase 1 control channel (trunked system)") | What was identified, or the measured description if nothing was. |
 | **Subtitle** | System details (NAC, WACN, System, Site, RFSS for P25; colour code for DMR ...) or the frequency, width and strength. |
 | **Band: ...** | What that part of the radio spectrum is normally used for. Only a hint; nothing is decided from it alone. |
-| **Buttons** | The next steps (below). **x** closes the card for that signal. |
+| **Grey explanatory sentences** (the *tips*) | Plain-English notes such as "Could be analog voice, an encrypted or unsupported mode, or too weak to decode." Each has its own small **x** on the right: click it to hide that sentence **for good**. See *Tips* below. |
+| **Buttons** | The next steps (below). The **x** in the top right corner closes the card for that signal. |
 
 Buttons you may see:
 
@@ -33,12 +34,36 @@ Buttons you may see:
 * **Decode and listen**: for a conventional (non-trunked) digital voice channel. Plays the decoded voice.
 * **Follow trunked system**: see the next section.
 * **Center on signal**: your cursor is a little off the signal's true centre; this snaps it on.
-* **Read pager messages / Decode APRS / Read weather alerts / Read sensors / Read aircraft (ADS-B)**: the text decoders
-  (below). Offered where the band suggests them.
+* **Decode APRS / Read weather alerts / Read sensors / Read aircraft (ADS-B)**: the text decoders (below). Offered
+  where the band clearly points at them. Pager messages are *not* offered on cards (the pager bands overlap ordinary
+  voice channels, so the button would sit on far too many cards): start them from **Text decoders** in the SDRstar panel.
 
 A digital protocol is only **claimed** after enough error-checked data has really been decoded. If nothing is
 claimed the card says "No digital protocol recognised" and tells you what that could mean (analog, encrypted, too weak,
 or a mode that is not supported).
+
+### Tips: hide the explanations for good
+
+The grey explanatory sentences are there to teach, and you only need to read each one once. Click the small **x** next
+to a sentence and that kind of sentence never appears again (it is remembered between sessions). In the SDRstar panel:
+
+* **Show explanatory tips on cards** turns all of them off (or back on) at once;
+* **Bring back N hidden tips** appears once you have hidden some, and restores them all.
+
+Only explanations can be hidden. Status lines, warnings and the reasons something cannot be done always stay.
+
+### Auto-decode
+
+Tick **Auto-decode identified signals** in the SDRstar panel and decoding starts by itself:
+
+* when you **rest the cursor** (about half a second) on a signal that has already been identified, or
+* when you press **Identify** (on the card or in the panel) and the check finds a protocol while your cursor is still
+  on that signal.
+
+An ordinary digital voice channel starts **Decode and listen**; a trunked system's control channel starts **Follow
+trunked system**. It stays out of your way: it never interrupts a decoder or follower that is already running, and
+after you press **Stop** it waits until you move the cursor somewhere new before starting anything again. If the
+background check identifies the signal while your cursor is resting on it, that counts too. It is off by default.
 
 ## Following a trunked system
 
@@ -122,6 +147,8 @@ signal a decoder is listening to, the decoder stops and says so.
 | --- | --- |
 | **Label signals on the waterfall** | Turns the little tags on and off. |
 | **Quietly identify steady digital signals** | The automatic background identification. Off = only when you click. Signals that are tested and turn out not to be digital are re-tested only rarely (the wait grows from 1.5 minutes to an hour). |
+| **Auto-decode identified signals** | Starts decoding by itself once the cursor rests on an identified signal, or an Identify you pressed succeeds (see *Auto-decode* above). |
+| **Show explanatory tips on cards** / **Bring back N hidden tips** | Turns the grey explanations off or on; restores the ones you hid (see *Tips* above). |
 | **Sensitivity** | How far (in dB) above the noise a signal must rise to be labelled. Lower finds weaker signals but gives more false labels. |
 | **Identify signal under the cursor** | Same as the card's Identify button. |
 | **Status** and **Stop** | What the smart layer is doing now; Stop ends any job. |
@@ -135,6 +162,11 @@ Analog listening uses SDR++'s normal path (volume, device and mute in the top ba
 digital voice (a followed trunked call, or **Decode and listen**) plays through a second audio stream named
 **SDRstar Voice**, on the same output device. While you follow a trunked system or decode a digital voice channel, your normal
 radio is muted so you do not hear digital noise on top of the voice; stopping the job unmutes it.
+
+Decoded voice is held back for about a tenth of a second before it plays, so the speech is smooth rather than broken
+up; you may notice that small delay at the start of each transmission. Calls on one slot of a two-slot system (DMR,
+P25 Phase 2) play on both speakers; two calls at once stay separated left and right. Both audio streams can use the
+same output device at the same time (SDRstar's audio patch makes sure a quiet stream can never stall the other).
 
 ## Settings you may want
 

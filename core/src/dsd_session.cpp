@@ -107,6 +107,28 @@ const DsdPreset* findDsdPreset(const std::string& id) {
     return nullptr;
 }
 
+int dsdOutputChannels(const std::vector<std::string>& modeFlags) {
+    for (const auto& f : modeFlags) {
+        if (f.size() >= 3 && f[0] == '-' && f[1] == 'f') {
+            switch (f[2]) {
+            case '1':   // P25 Phase 1
+            case 'n':   // NXDN 9600
+            case 'i':   // NXDN 4800
+            case 'm':   // dPMR
+            case 'd':   // D-STAR
+            case 'y':   // Yaesu System Fusion
+            case 'z':   // M17
+            case 'p':   // ProVoice
+            case 'h':   // EDACS / ProVoice
+                return 1;
+            default:    // -ft (trunking), -fs (DMR), -f2 (P25 Phase 2), -fx (X2-TDMA), -fa (auto): two slots
+                return 2;
+            }
+        }
+    }
+    return 2;   // DSD-neo's own default
+}
+
 bool DsdSession::start(const Config& cfg, std::string& error) {
     if (proc_ && proc_->running()) {
         error = "decoder already running";
@@ -114,6 +136,7 @@ bool DsdSession::start(const Config& cfg, std::string& error) {
     }
     cfg_ = cfg;
     stopping_ = false;
+    audioChannels_ = cfg.audioChannels > 0 ? cfg.audioChannels : dsdOutputChannels(cfg.mode);
     {
         std::lock_guard<std::mutex> lk(mtx_);
         st_ = DsdState();
@@ -193,6 +216,7 @@ bool DsdSession::start(const Config& cfg, std::string& error) {
     o.env["NO_COLOR"] = "1";
     o.captureStdout = true;
     o.captureStderr = true;
+    o.niceLevel = cfg.niceLevel;
 
     proc_ = std::make_unique<Subprocess>();
     proc_->setStdoutCallback([this](const uint8_t* d, size_t n) {
@@ -457,24 +481,44 @@ void DsdSession::ingestLogLine(const std::string& raw) {
     static const std::regex reCc(R"(Color Code=([0-9]+))");
     static const std::regex reRan(R"(RAN[=: ]+([0-9]+))");
 
+    // The decoder prints a lot of lines and most of them mention none of these fields.  A regular-expression search is
+    // slow (microseconds per line, per field), so each one only runs when the plain text it needs is present, and all of
+    // them run BEFORE the lock is taken (the GUI polls state() under the same lock every frame).
+    struct Found {
+        bool sync = false, nac = false, wacn = false, sys = false, rfss = false, site = false, cc = false, ran = false;
+        std::string syncName;
+        long long nacV = 0, wacnV = 0, sysV = 0, rfssV = 0, siteV = 0, ccV = 0, ranV = 0;
+    } f;
+    std::smatch m;
+    if (line.find("Sync:") != std::string::npos && std::regex_search(line, m, reSync)) {
+        f.sync = true;
+        f.syncName = m[1].str();
+    }
+    if (line.find("NAC/CC:") != std::string::npos && std::regex_search(line, m, reNac)) { f.nac = true; f.nacV = hexOrDec(m[1].str(), 16); }
+    if (line.find("WACN:") != std::string::npos && std::regex_search(line, m, reWacn)) { f.wacn = true; f.wacnV = hexOrDec(m[1].str(), 16); }
+    if (line.find("SYS:") != std::string::npos && std::regex_search(line, m, reSys)) { f.sys = true; f.sysV = hexOrDec(m[1].str(), 16); }
+    if (line.find("RFSS:") != std::string::npos && std::regex_search(line, m, reRfss)) { f.rfss = true; f.rfssV = hexOrDec(m[1].str(), 10); }
+    if (line.find("Site:") != std::string::npos && std::regex_search(line, m, reSite)) { f.site = true; f.siteV = hexOrDec(m[1].str(), 10); }
+    if (line.find("Color Code=") != std::string::npos && std::regex_search(line, m, reCc)) { f.cc = true; f.ccV = hexOrDec(m[1].str(), 10); }
+    if (line.find("RAN") != std::string::npos && std::regex_search(line, m, reRan)) { f.ran = true; f.ranV = hexOrDec(m[1].str(), 10); }
+    const bool isError = line.find("ERROR") != std::string::npos || line.find("Error") != std::string::npos;
+
     {
         std::lock_guard<std::mutex> lk(mtx_);
         log_.push_back(line);
         while (log_.size() > kMaxLogLines) { log_.pop_front(); }
-
-        std::smatch m;
-        if (std::regex_search(line, m, reSync)) {
+        if (f.sync) {
             st_.syncLines++;
-            st_.lastSync = m[1].str();
+            st_.lastSync = f.syncName;
         }
-        if (std::regex_search(line, m, reNac)) { st_.identity.nac = hexOrDec(m[1].str(), 16); }
-        if (std::regex_search(line, m, reWacn)) { st_.identity.wacn = hexOrDec(m[1].str(), 16); }
-        if (std::regex_search(line, m, reSys)) { st_.identity.sysid = hexOrDec(m[1].str(), 16); }
-        if (std::regex_search(line, m, reRfss)) { st_.identity.rfss = (int)hexOrDec(m[1].str(), 10); }
-        if (std::regex_search(line, m, reSite)) { st_.identity.site = (int)hexOrDec(m[1].str(), 10); }
-        if (std::regex_search(line, m, reCc)) { st_.identity.colorCode = (int)hexOrDec(m[1].str(), 10); }
-        if (std::regex_search(line, m, reRan)) { st_.identity.ran = (int)hexOrDec(m[1].str(), 10); }
-        if (line.find("ERROR") != std::string::npos || line.find("Error") != std::string::npos) { st_.lastError = line; }
+        if (f.nac) { st_.identity.nac = f.nacV; }
+        if (f.wacn) { st_.identity.wacn = f.wacnV; }
+        if (f.sys) { st_.identity.sysid = f.sysV; }
+        if (f.rfss) { st_.identity.rfss = (int)f.rfssV; }
+        if (f.site) { st_.identity.site = (int)f.siteV; }
+        if (f.cc) { st_.identity.colorCode = (int)f.ccV; }
+        if (f.ran) { st_.identity.ran = (int)f.ranV; }
+        if (isError) { st_.lastError = line; }
     }
     if (logCb_) { logCb_(line); }  // outside the lock: UI code may call back into state()
 }

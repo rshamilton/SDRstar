@@ -6,9 +6,13 @@
 // Skipped unless SDRSTAR_DSD_NEO and SDRSTAR_FIXTURES are set.
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
+#include <mutex>
 #include <thread>
+#include <vector>
 
+#include "audio_check.h"
 #include "sdrstar/trunk_follower.h"
 #include "sim_host.h"
 #include "test_framework.h"
@@ -75,7 +79,18 @@ TEST(out_of_bandwidth_hops_to_the_voice_channel_then_returns) {
     host.addSignal("VC", kVc, loadFixture("p25p1_cqpsk_vc"), /*loop=*/false, /*startOnListen=*/true);
     TrunkFollower f(&host);
     std::atomic<long long> audioFrames{0};
-    f.setAudioCallback([&](const int16_t*, size_t n, int, int) { audioFrames += (long long)n; });
+    std::mutex audioMtx;
+    std::vector<int16_t> audio;           // everything the follower delivered, as interleaved frames
+    std::vector<std::pair<double, size_t>> arrivals;   // (seconds since start, frames) of every delivery
+    const auto tStart = std::chrono::steady_clock::now();
+    std::atomic<int> audioChannels{0};
+    f.setAudioCallback([&](const int16_t* d, size_t n, int ch, int) {
+        audioFrames += (long long)n;
+        audioChannels = ch;
+        std::lock_guard<std::mutex> lk(audioMtx);
+        audio.insert(audio.end(), d, d + n * (size_t)ch);
+        arrivals.push_back({std::chrono::duration<double>(std::chrono::steady_clock::now() - tStart).count(), n});
+    });
     TrunkFollower::Config c;
     c.dsdExe = dsdExe();
     c.controlHz = kCc;
@@ -99,6 +114,27 @@ TEST(out_of_bandwidth_hops_to_the_voice_channel_then_returns) {
     CHECK(sawVoiceWindow);
     std::printf("    decoded voice frames received: %lld\n", (long long)audioFrames.load());
     f.stop();
+    // What reaches the speakers must be speech at the right speed: the pitch of a human voice, not double.
+    {
+        std::lock_guard<std::mutex> lk(audioMtx);
+        const int ch = audioChannels.load();
+        CHECK(ch == 1 || ch == 2);
+        int voiced = 0;
+        const double pitch = sdrstar_test::medianPitchHz(sdrstar_test::firstChannel(audio, ch ? ch : 2), 8000, &voiced);
+        std::printf("    followed voice: %d voiced windows, median pitch %.0f Hz\n", voiced, pitch);
+        CHECK(voiced >= 1);
+        CHECK(pitch > 90.0 && pitch < 220.0);
+    }
+    // Let a developer listen to / analyse exactly what the speakers would get.
+    if (const char* dump = std::getenv("SDRSTAR_DUMP_AUDIO")) {
+        std::lock_guard<std::mutex> lk(audioMtx);
+        if (FILE* fp = std::fopen(dump, "wb")) {
+            std::fwrite(audio.data(), sizeof(int16_t), audio.size(), fp);
+            std::fclose(fp);
+            std::printf("    wrote %zu samples (%d channels) to %s\n", audio.size(), audioChannels.load(), dump);
+            for (auto& a : arrivals) { std::printf("    audio +%.3fs: %zu frames (%.0f ms)\n", a.first, a.second, 1000.0 * (double)a.second / 8000.0); }
+        }
+    }
 }
 
 TEST(faster_sample_rate_keeps_control_and_voice_in_one_window) {

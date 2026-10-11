@@ -30,7 +30,8 @@ Nothing is forked or vendored. All pins live in `versions.env`.
 
 Patches: `0001` bias-tee safety lock; `0002` a "mute" hook so the radio can be silenced while decoded voice plays;
 `0003` window title and credits; `0004` defaults (settings folder `~/Library/Application Support/SDRstar`, the SDRstar
-panel, RTL-SDR as the default source, the "SDRstar Voice" audio stream).
+panel, RTL-SDR as the default source, the "SDRstar Voice" audio stream); `0005` the audio sink's callback never blocks
+(see *Voice playback* below).
 
 ## 2. Process layout and data flow
 
@@ -115,7 +116,7 @@ the *radio*:
      **refuse with a plain-English reason** ("... is out of bandwidth (N MHz from the control channel)");
    * outside what the hardware can tune (below 0.5 MHz or above 1.766 GHz): refuse and say so;
    * with a recording as the source (cannot retune): say what range the recording covers.
-4. Decoded voice comes back on DSD-neo's stdout and plays through an SDR++ audio stream ("SDRstar Voice"), so volume
+4. Decoded voice comes back on DSD-neo's stdout (see *Voice playback* below) and plays through an SDR++ audio stream ("SDRstar Voice"), so volume
    and output device work as usual; the radio is muted meanwhile.
 
 A retune is budgeted at about a quarter of a second (not yet measured on real hardware); the channel is muted across the gap so no junk reaches the decoder.
@@ -123,6 +124,30 @@ A retune is budgeted at about a quarter of a second (not yet measured on real ha
 **Limits.** One RTL-SDR is one tuner, so simultaneous calls on far-apart frequencies cannot both be heard, and control
 traffic is missed during a hop. Encrypted calls are reported, not decoded. P25 announces its frequency plan; DMR, NXDN and
 EDACS need a channel list (CSV) from the user. NXDN96 and dPMR decode weakly through the audio path.
+
+### Voice playback (and why it is built the way it is)
+
+DSD-neo writes decoded voice to stdout as raw 8 kHz signed 16-bit samples with **no header**, and the channel count
+depends on the decode mode: the single-voice modes (P25 Phase 1, NXDN, D-STAR, YSF, dPMR, M17, ProVoice, EDACS) write
+**mono**; the two-slot modes and the trunking helper (`-ft`: P25 Phase 1 + 2 and DMR) write **stereo** (slot 1 left,
+slot 2 right, a single voice duplicated). `dsdOutputChannels()` (`core/src/dsd_session.cpp`) holds the table; reading
+mono as stereo plays it at twice the pitch and speed, which `test_dsd_session` now checks against a real P25 recording
+(pitch of a human voice, not double).
+
+`VoiceJitterBuffer` (`core/include/sdrstar/voice_jitter.h`) sits between the decoder and the audio stream: nothing
+plays until about 120 ms of voice is queued (a short transmission plays after at most 240 ms), then audio is handed
+over as fast as the stream takes it, and when the queue runs dry it goes back to waiting. An idle voice stream
+therefore produces no audio data at all. A call on one TDMA slot is duplicated onto both channels.
+
+The audio sink side matters just as much. SDR++'s PortAudio sink pulls audio with a callback that **blocks until a
+whole block is available**. SDRstar adds a second stream that is silent until a call is decoded, and CoreAudio runs
+every stream that shares an output device on **one** I/O thread, so a callback waiting on the silent stream stalls the
+other stream, and anything that stops or reopens the device (a click in the Sinks menu) waits for that blocked thread:
+the whole app froze until a call happened to arrive. Patch `0005` makes the callback take what is queued, wait at most
+a few milliseconds for the rest of a block that has already started, and fill the remainder with silence; an empty
+stream costs nothing. It also tells the stream the new sample rate when the output device is changed. (The unpatched
+behaviour and the patched one were both run against SDR++'s real ring buffer: the unpatched `read()` on a silent
+stream never returns.)
 
 ## 5. Text decoders
 

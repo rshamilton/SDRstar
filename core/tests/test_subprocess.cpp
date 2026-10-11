@@ -6,6 +6,7 @@
 //   * a child that never reads cannot block the (real-time) caller, memory use stays bounded;
 //   * if the host application dies suddenly (SIGKILL), its children do not live on.
 #include <signal.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -55,6 +56,30 @@ TEST(data_round_trip_and_exit_are_observed) {
     p.stop();
     CHECK_EQ(out, std::string("hello decoder\n"));
     CHECK_EQ(exitCode.load(), 0);
+}
+
+// What CPU priority ("nice" value) does a child end up with?  The child itself reports it through ps.
+static int childNice(int niceLevel) {
+    Subprocess p;
+    std::string out;
+    p.setStdoutCallback([&](const uint8_t* d, size_t n) { out.append((const char*)d, n); });
+    Subprocess::Options o;
+    o.argv = {"/bin/sh", "-c", "ps -o ni= -p $$"};
+    o.niceLevel = niceLevel;
+    std::string err;
+    if (!p.start(o, err)) { return -999; }
+    auto t0 = Clock::now();
+    while (p.running() && since(t0) < 5.0) { std::this_thread::sleep_for(std::chrono::milliseconds(10)); }
+    p.stop();
+    return std::atoi(out.c_str());
+}
+
+TEST(background_children_run_at_lower_priority) {
+    const int host = ::getpriority(PRIO_PROCESS, 0);
+    CHECK_EQ(childNice(0), host);          // default: same priority as the host
+    CHECK_EQ(childNice(10), 10 > host ? 10 : host);
+    CHECK_EQ(childNice(100), 19);          // absurd values are clamped to the lowest priority
+    CHECK_EQ(childNice(-5), host);         // a negative value never raises priority
 }
 
 TEST(missing_or_unrunnable_programs_fail_cleanly) {

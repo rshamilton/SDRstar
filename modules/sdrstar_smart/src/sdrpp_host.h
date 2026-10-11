@@ -5,6 +5,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -51,6 +52,12 @@ private:
     static void onBlock(dsp::complex_t* data, int count, void* ctx);
     bool fitsLocked(double absHz, double bwHz) const;
     void applyOffsetsLocked();
+
+    // sourceName() is asked several times per frame (caps()); reading SDR++'s config means a lock and a JSON string
+    // copy each time, so the answer is reused for a quarter of a second.
+    mutable std::mutex nameMtx_;
+    mutable std::string cachedName_;
+    mutable std::chrono::steady_clock::time_point nameAt_{};
 
     mutable std::mutex mtx_;
     std::map<int, std::unique_ptr<Chan>> chans_;

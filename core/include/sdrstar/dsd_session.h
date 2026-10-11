@@ -112,6 +112,8 @@ public:
         bool wantAudio = false;           // true: -o - (decoded voice on stdout); false: -o null
         std::string workDir;              // cwd and XDG dirs for the child ("" = system temp)
         std::string label;                // for logs
+        int niceLevel = 0;                // > 0: run the decoder at a lower CPU priority
+        int audioChannels = 0;            // channels of the decoded voice on stdout; 0 = work it out from `mode` (dsdOutputChannels)
     };
 
     using AudioCb = std::function<void(const int16_t* interleaved, size_t frames, int channels, int rate)>;
@@ -183,5 +185,12 @@ struct DsdPreset {
 };
 const std::vector<DsdPreset>& dsdPresets();
 const DsdPreset* findDsdPreset(const std::string& id);
+
+// How many channels DSD-neo writes to stdout (`-o -`, 8 kHz s16, no header) for a decode preset.  It depends on the mode:
+// the single-voice modes (P25 Phase 1, NXDN, D-STAR, YSF, dPMR, M17, ProVoice, EDACS) write MONO; the two-slot TDMA modes
+// and the trunking helper (-ft: P25 Phase 1 + 2 and DMR) write STEREO (slot 1 left, slot 2 right; a single voice is
+// duplicated on both).  Reading mono as stereo plays it back at twice the pitch and speed.  `modeFlags` are the preset
+// flags, e.g. {"-f1"}.  Verified against the real decoder in test_dsd_session.
+int dsdOutputChannels(const std::vector<std::string>& modeFlags);
 
 }  // namespace sdrstar

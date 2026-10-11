@@ -1,0 +1,94 @@
+diff --git a/sink_modules/portaudio_sink/src/main.cpp b/sink_modules/portaudio_sink/src/main.cpp
+index 6df8be0..cf36f1d 100644
+--- a/sink_modules/portaudio_sink/src/main.cpp
++++ b/sink_modules/portaudio_sink/src/main.cpp
+@@ -8,6 +8,10 @@
+ #include <dsp/sink/ring_buffer.h>
+ #include <utils/flog.h>
+ #include <core.h>
++#include <algorithm>
++#include <atomic>
++#include <chrono>
++#include <thread>
+ 
+ #define CONCAT(a, b) ((std::string(a) + b).c_str())
+ 
+@@ -19,6 +23,35 @@ SDRPP_MOD_INFO{
+     /* Max instances    */ 1
+ };
+ 
++// SDRstar: pull one audio block out of the ring WITHOUT ever waiting for data that may not come.
++//
++// Upstream the audio callback calls RingBuffer::read(), which blocks until the whole block is there.  With a single
++// stream that is harmless, but SDRstar adds a second stream ("SDRstar Voice") that is silent until a call is decoded,
++// and CoreAudio runs every stream that shares an output device on ONE I/O thread.  A callback that sits waiting for a
++// silent stream therefore stalls the other stream too, and anything that stops, reopens or reconfigures the device (a
++// click in the Sinks menu) then waits for that blocked thread: the whole application freezes until a call happens to
++// arrive.  So: take what is there; wait only briefly for the rest of a block that has already started; and fill what is
++// missing with silence.  A stream that has nothing queued costs nothing.
++template <class T>
++static void sdrstarPull(dsp::buffer::RingBuffer<T>& rb, T* out, unsigned long frames, double sampleRate) {
++    const double blockMs = 1000.0 * (double)frames / (sampleRate > 0 ? sampleRate : 48000.0);
++    const double waitMs = std::max(1.0, std::min(8.0, 0.4 * blockMs));
++    const auto deadline = std::chrono::steady_clock::now() + std::chrono::microseconds((long long)(waitMs * 1000.0));
++    unsigned long done = 0;
++    while (done < frames) {
++        const int avail = rb.getReadable();
++        if (avail <= 0) {
++            if (done == 0 || std::chrono::steady_clock::now() >= deadline) { break; }
++            std::this_thread::sleep_for(std::chrono::microseconds(200));
++            continue;
++        }
++        const int n = (int)std::min<unsigned long>((unsigned long)avail, frames - done);
++        if (rb.read(out + done, n) < 0) { break; }   // the sink is being stopped
++        done += (unsigned long)n;
++    }
++    if (done < frames) { memset(out + done, 0, (frames - done) * sizeof(T)); }
++}
++
+ class AudioSink : SinkManager::Sink {
+ public:
+     struct AudioDevice_t {
+@@ -121,6 +154,8 @@ public:
+ 
+         ImGui::SetNextItemWidth(menuWidth);
+         if (ImGui::Combo(("##_audio_sink_dev_" + _streamName).c_str(), &devListId, txtDevList.c_str())) {
++            // SDRstar: the new device opens at ITS sample rate; tell the stream, or audio plays at the wrong speed.
++            _stream->setSampleRate(devices[devListId]->sampleRates[devices[devListId]->srId]);
+             // TODO: Load SR from config
+             if (running) {
+                 doStop();
+@@ -156,6 +191,7 @@ private:
+         PaError err;
+ 
+         float sampleRate = dev->sampleRates[dev->srId];
++        curRate = sampleRate;
+         int bufferSize = sampleRate / 60.0f;
+ 
+         if (dev->channels == 2) {
+@@ -214,7 +250,7 @@ private:
+             memset(output, 0, frameCount * sizeof(float));
+             return 0;
+         }
+-        _this->monoRB.data.read((float*)output, frameCount);
++        sdrstarPull(_this->monoRB.data, (float*)output, frameCount, _this->curRate.load());
+         return 0;
+     }
+ 
+@@ -225,7 +261,7 @@ private:
+             memset(output, 0, frameCount * sizeof(dsp::stereo_t));
+             return 0;
+         }
+-        _this->stereoRB.data.read((dsp::stereo_t*)output, frameCount);
++        sdrstarPull(_this->stereoRB.data, (dsp::stereo_t*)output, frameCount, _this->curRate.load());
+         return 0;
+     }
+ 
+@@ -262,6 +298,7 @@ private:
+     int srId = 0;
+     int devCount;
+     int devId = 0;
++    std::atomic<double> curRate{48000.0};   // sample rate of the open stream (read by the audio thread)
+     int devListId = 0;
+     int defaultDev = 0;
+     bool running = false;

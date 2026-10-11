@@ -8,10 +8,12 @@
 #include <poll.h>
 #include <signal.h>
 #include <sys/socket.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 
@@ -119,6 +121,7 @@ bool Subprocess::start(const Options& opt, std::string& error) {
 
     const char* cwd = opt.cwd.empty() ? nullptr : opt.cwd.c_str();
     const bool capOut = opt.captureStdout, capErr = opt.captureStderr;
+    const int niceLevel = std::min(std::max(opt.niceLevel, 0), 19);
 
     pid_t pid = ::fork();
     if (pid < 0) {
@@ -145,6 +148,8 @@ bool Subprocess::start(const Options& opt, std::string& error) {
         if (maxfd < 0 || maxfd > 4096) { maxfd = 4096; }
         for (int fd = 3; fd < maxfd; ++fd) { ::close(fd); }
         if (cwd && ::chdir(cwd) != 0) { _exit(126); }
+        // Background work (automatic identification) must not compete with the GUI and the radio's DSP threads.
+        if (niceLevel > 0) { ::setpriority(PRIO_PROCESS, 0, niceLevel); }
         // Reset signal dispositions the host may have changed.
         ::signal(SIGPIPE, SIG_DFL);
         ::execve(argv[0], argv.data(), envp.data());

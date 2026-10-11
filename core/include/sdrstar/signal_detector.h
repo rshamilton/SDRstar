@@ -102,6 +102,9 @@ private:
     };
 
     DetectorParams p_;
+    // scratch space reused by every update() (one spectrum is up to tens of thousands of bins, eight times a second)
+    std::vector<float> smScratch_, floorScratch_, decScratch_, blkScratch_;
+    std::vector<double> prefixScratch_;
     std::vector<float> avgLin_;      // time-averaged linear power per bin
     double lastCenter_ = 0, lastSpan_ = 0;
     int lastBins_ = 0;

@@ -42,6 +42,7 @@ public:
         double earlyExitConfidence = 0.9;   // stop early once a verdict is this strong...
         double earlyExitMinSec = 1.8;       // ...and at least this long has passed
         double channelBwHz = 12500;
+        int niceLevel = 0;                  // > 0: run the decoder processes at a lower CPU priority (background probes)
     };
 
     ProbeManager() = default;
@@ -59,6 +60,13 @@ private:
         std::unique_ptr<DsdSession> session;
     };
     void finish();
+
+    // Re-reading every decoder's log and re-weighing the evidence is not free (several hundred lines per decoder), and the
+    // GUI polls once per frame, so the evaluation is refreshed a few times a second only.
+    static constexpr std::chrono::milliseconds kEvalInterval{200};
+    std::vector<ProbeVerdict> evalVerdicts_;
+    ProbeVerdict evalBest_;
+    std::chrono::steady_clock::time_point evalAt_{};
 
     Config cfg_;
     std::unique_ptr<ChannelPcmTap> tap_;

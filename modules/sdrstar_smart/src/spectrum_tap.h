@@ -49,6 +49,7 @@ private:
     std::mutex mtx_;
     std::condition_variable cv_;
     std::vector<std::vector<sdrstar::cf>> ready_;
+    std::vector<std::vector<sdrstar::cf>> pool_;   // buffers the worker is done with, handed back for the next capture
     double readyCenter_ = 0, readyRate_ = 0;
     bool haveReady_ = false;
     std::thread worker_;

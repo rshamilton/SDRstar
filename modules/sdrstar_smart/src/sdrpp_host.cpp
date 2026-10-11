@@ -14,10 +14,14 @@ using sdrstar::ReceiverCaps;
 SdrppRadioHost::~SdrppRadioHost() { closeAll(); }
 
 std::string SdrppRadioHost::sourceName() const {
+    const auto now = std::chrono::steady_clock::now();
+    std::lock_guard<std::mutex> lk(nameMtx_);
+    if (nameAt_ != std::chrono::steady_clock::time_point{} && now - nameAt_ < std::chrono::milliseconds(250)) { return cachedName_; }
     core::configManager.acquire();
-    std::string s = core::configManager.conf.contains("source") ? (std::string)core::configManager.conf["source"] : std::string();
+    cachedName_ = core::configManager.conf.contains("source") ? (std::string)core::configManager.conf["source"] : std::string();
     core::configManager.release();
-    return s;
+    nameAt_ = now;
+    return cachedName_;
 }
 
 bool SdrppRadioHost::retunable() const {

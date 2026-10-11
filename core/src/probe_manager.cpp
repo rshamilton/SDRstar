@@ -37,6 +37,9 @@ bool ProbeManager::start(RadioHost* host, double freqHz, const std::vector<std::
     last_ = ProbeProgress();
     last_.freqHz = freqHz;
     last_.durationSec = cfg.durationSec;
+    evalVerdicts_.clear();
+    evalBest_ = ProbeVerdict();
+    evalAt_ = std::chrono::steady_clock::time_point{};
     if (presetIds.empty()) {
         error = "no candidate decoders for this signal";
         return false;
@@ -59,6 +62,7 @@ bool ProbeManager::start(RadioHost* host, double freqHz, const std::vector<std::
         dc.wantAudio = false;
         dc.workDir = cfg.workDir.empty() ? "" : cfg.workDir + "/probe-" + id;
         dc.label = "probe-" + id;
+        dc.niceLevel = cfg.niceLevel;
         std::string err;
         if (!e.session->start(dc, err)) {
             error = "could not start decoder for " + id + ": " + err;
@@ -84,11 +88,19 @@ ProbeProgress ProbeManager::poll() {
     pr.active = true;
     pr.freqHz = freqHz_;
     pr.durationSec = cfg_.durationSec;
-    pr.elapsedSec = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0_).count();
-    for (auto& e : entries_) {
-        pr.verdicts.push_back(evaluateProbe(e.presetId, e.session->state(), e.session->recentLog(400)));
+    const auto now = std::chrono::steady_clock::now();
+    pr.elapsedSec = std::chrono::duration<double>(now - t0_).count();
+    // The last look (when time is up) is always fresh; in between, reuse the evaluation from the last 200 ms.
+    if (pr.elapsedSec >= cfg_.durationSec || evalAt_ == std::chrono::steady_clock::time_point{} || now - evalAt_ >= kEvalInterval) {
+        evalVerdicts_.clear();
+        for (auto& e : entries_) {
+            evalVerdicts_.push_back(evaluateProbe(e.presetId, e.session->state(), e.session->recentLog(400)));
+        }
+        evalBest_ = bestVerdict(evalVerdicts_);
+        evalAt_ = now;
     }
-    pr.best = bestVerdict(pr.verdicts);
+    pr.verdicts = evalVerdicts_;
+    pr.best = evalBest_;
 
     bool done = pr.elapsedSec >= cfg_.durationSec;
     if (pr.best.claimed && pr.best.confidence >= cfg_.earlyExitConfidence && pr.elapsedSec >= cfg_.earlyExitMinSec) { done = true; }

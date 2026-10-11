@@ -4,6 +4,7 @@
 // side-panel menu.  It only reads from SmartEngine and calls doAction().
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include <gui/gui.h>
@@ -24,6 +25,7 @@ private:
         ImVec2 min, max;
         CardAction action;
         bool enabled;
+        std::string arg;   // e.g. the key of the tip an "x" hides
     };
     static void onRedraw(ImGui::WaterFall::FFTRedrawArgs args, void* ctx);
     static void onInput(ImGui::WaterFall::InputHandlerArgs args, void* ctx);
@@ -39,5 +41,5 @@ private:
     bool cardShown_ = false;
     ImVec2 cardMin_, cardMax_;
     std::vector<Hit> hits_;
-    int hoverRow_ = -1;
+    std::vector<const sdrstar::DetectedSignal*> labelOrder_;   // scratch for drawLabels (reused every frame)
 };

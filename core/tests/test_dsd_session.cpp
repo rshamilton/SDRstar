@@ -7,10 +7,13 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <mutex>
 #include <thread>
+#include <vector>
 
 #include "sdrstar/dsd_session.h"
 #include "sdrstar/dsp_lite.h"
+#include "audio_check.h"
 #include "test_framework.h"
 
 using namespace sdrstar;
@@ -133,6 +136,65 @@ TEST(real_dsd_dmr_color_code_and_voice_audio) {
     CHECK(frames.load() > 800);             // decoded voice reached us (8 kHz stereo frames)
     CHECK(energy.load() > 1e6);             // and it is not silence
     s.stop();
+}
+
+// DSD-neo writes P25 Phase 1 voice as MONO.  Reading it as stereo (the old assumption) plays it back at twice the pitch
+// and speed, which is what "I never heard any good audio" sounded like.  This runs the real decoder on a real P25
+// voice recording and checks that what SDRstar hands to the speakers has the pitch of a human voice.
+TEST(real_dsd_p25_phase1_voice_is_mono_and_speech_like) {
+    if (!haveEnv()) { return; }
+    auto pcm = fixturePcm("p25p1_cqpsk_vc");
+    CHECK(!pcm.empty());
+    DsdSession s;
+    DsdSession::Config c;
+    c.exePath = dsdExe();
+    c.mode = {"-f1"};
+    c.wantAudio = true;
+    std::mutex mtx;
+    std::vector<int16_t> audio;
+    std::atomic<int> channels{0};
+    s.setAudioCallback([&](const int16_t* d, size_t n, int ch, int rate) {
+        (void)rate;
+        channels = ch;
+        std::lock_guard<std::mutex> lk(mtx);
+        audio.insert(audio.end(), d, d + n * (size_t)ch);
+    });
+    std::string err;
+    CHECK(s.start(c, err));
+    feedUntil(s, pcm, 25.0, [&](const DsdState&) {
+        std::lock_guard<std::mutex> lk(mtx);
+        return audio.size() > 8000 * 4;   // a few seconds of speech
+    });
+    s.stop();
+    CHECK_EQ(channels.load(), 1);
+    std::vector<int16_t> copy;
+    {
+        std::lock_guard<std::mutex> lk(mtx);
+        copy = audio;
+    }
+    int voiced = 0;
+    const double pitch = sdrstar_test::medianPitchHz(sdrstar_test::firstChannel(copy, channels.load() ? channels.load() : 1), 8000, &voiced);
+    std::printf("    P25p1 voice: %zu samples, %d voiced windows, median pitch %.0f Hz\n", copy.size(), voiced, pitch);
+    CHECK(voiced >= 3);
+    CHECK(pitch > 90.0 && pitch < 220.0);   // twice the speed would read 300 Hz and up
+}
+
+TEST(output_channel_count_follows_the_decode_mode) {
+    CHECK_EQ(dsdOutputChannels({"-f1"}), 1);   // P25 Phase 1
+    CHECK_EQ(dsdOutputChannels({"-fn"}), 1);   // NXDN 9600
+    CHECK_EQ(dsdOutputChannels({"-fi"}), 1);   // NXDN 4800
+    CHECK_EQ(dsdOutputChannels({"-fm"}), 1);   // dPMR
+    CHECK_EQ(dsdOutputChannels({"-fd"}), 1);   // D-STAR
+    CHECK_EQ(dsdOutputChannels({"-fy"}), 1);   // YSF
+    CHECK_EQ(dsdOutputChannels({"-fz"}), 1);   // M17
+    CHECK_EQ(dsdOutputChannels({"-fp"}), 1);   // ProVoice
+    CHECK_EQ(dsdOutputChannels({"-fh"}), 1);   // EDACS
+    CHECK_EQ(dsdOutputChannels({"-ft"}), 2);   // trunking helper (P25 1 + 2, DMR)
+    CHECK_EQ(dsdOutputChannels({"-fs"}), 2);   // DMR
+    CHECK_EQ(dsdOutputChannels({"-f2"}), 2);   // P25 Phase 2
+    CHECK_EQ(dsdOutputChannels({}), 2);        // DSD-neo's own default
+    // every preset SDRstar offers agrees with the table
+    for (const auto& p : dsdPresets()) { CHECK(dsdOutputChannels(p.flags) == 1 || dsdOutputChannels(p.flags) == 2); }
 }
 
 TEST(stop_kills_the_child_and_is_idempotent) {

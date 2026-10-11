@@ -7,7 +7,7 @@ not be tested here it says so.
 
 | Layer | What it proves | Where |
 | --- | --- | --- |
-| **Core unit and integration tests** (82 test cases, about 58,700 checks, 13 programs) | The planner, rigctl bridge, process handling, signal detection, identification evidence rules, trunk follower, text decoders, resampler. The integration tests run the **real DSD-neo, multimon-ng and rtl_433** on recorded signals, with the radio replaced by a simulator. | `core/tests`, run with `ctest` (or `scripts/test_core.sh`) |
+| **Core unit and integration tests** (114 test cases, about 58,850 checks, 16 programs) | The planner, rigctl bridge, process handling, signal detection, identification evidence rules, trunk follower, text decoders, resampler, FFT, the voice jitter buffer, and the card preferences (hidden tips, auto-decode rules). The integration tests run the **real DSD-neo, multimon-ng and rtl_433** on recorded signals, with the radio replaced by a simulator. | `core/tests`, run with `ctest` (or `scripts/test_core.sh`) |
 | **Real-air trunk following** | The follower, with the real DSD-neo, on a real recorded P25 system, with a simulated RTL-SDR window moved over the recording. | `core/tests/test_real_trunk.cpp` |
 | **Sanitizers** | No data races (ThreadSanitizer) and no memory errors (AddressSanitizer / UBSan) in the core. | `scripts/ci_tsan.sh` runs on every push; AddressSanitizer + UBSan + LeakSanitizer were run by hand over the whole suite: no reports |
 | **Safety audit** | The safety claims in [SAFETY.md](SAFETY.md) hold in the source. | `scripts/safety_audit.sh`, every push |
@@ -50,7 +50,12 @@ the 73 entries (63 verified, 8 plausible, 2 rejected), is in [`tests/samples/`](
 | ISM sensors (rtl_433) | real sensor captures, including through the full GUI on the 1 MS/s recording | pass (Acurite id 4700, 2.5 C, 58 %, as expected) |
 | Aircraft (ADS-B) decoder: demodulator, CRC with single-bit repair, callsign / altitude / CPR position / velocity | the published reference messages from "The 1090 MHz Riddle" (decode to the published callsign, position and velocity); a synthetic modulator with noise, back-to-back frames, odd chunk sizes and injected bit errors; **a real 2 MS/s recording** through the unit test and the full GUI | pass: 145 CRC-verified frames from the one aircraft in the recording, where the reference decoder (dump1090) finds 120; noise alone produces none |
 | APRS, EAS | synthetic signals through the real multimon-ng and our resampler | pass (synthetic only; no real APRS/EAS recording was found) |
-| Child-process safety: end on host death, kill escalation, bounded writes | `test_subprocess` | pass (decoder gone 0.02 s after SIGKILL of the host) |
+| Child-process safety: end on host death, kill escalation, bounded writes; background children run at a lower CPU priority | `test_subprocess` | pass (decoder gone 0.02 s after SIGKILL of the host) |
+| **Decoded voice is speech at the right speed**: the channel layout of every decode mode, and the audio that reaches the speakers while following | the real DSD-neo on real P25 voice recordings; the pitch of what comes out is measured (human voice, not double); the old stereo assumption was put back temporarily to prove the test fails (median pitch 296 Hz instead of 148 Hz) | pass |
+| Voice smoothing (jitter buffer): pre-buffering, short transmissions, underruns, bounded queue, one-slot TDMA calls on both speakers, concurrent producer / consumer | `test_voice_jitter` (injectable clock, no audio hardware) | pass |
+| Hidden tips and auto-decode rules (once per cursor visit, never over a running job, quiet after Stop, Identify then decode) | `test_card_prefs`; then in the whole GUI: tick the checkbox, rest the cursor on an identified D-STAR signal (decoding started by itself), Stop (did not restart), move to the identified P25 control channel (following started) | pass |
+| FFT (spectrum tap and detector) | `test_dsp_lite`: against a reference DFT for every size, a pure tone, size changes | pass |
+| Audio sink never blocks the audio thread (patch 0005) | the patched pull logic compiled against SDR++'s **real ring buffer**: an empty stream returns at once with silence, a started block is completed, an unfinished one gives up after a few ms, stopping cannot be held up; the unpatched read on a silent stream was shown never to return | pass (the freeze itself needs CoreAudio, see section 6) |
 | Whole GUI: labels, cursor card, auto-identification chip, follow card, side panel, message list | virtual-display runs with real recordings | pass; found and fixed several real problems (below) |
 | Long use | 6 minutes of continuous following, then 15 follow/stop cycles | memory flat (about 244 MB); threads and descriptors back to baseline after each cycle; no leftover decoders |
 
@@ -78,6 +83,22 @@ Listed because they show what the tests are good for:
   VFO's reference point was used instead of its centre.
 * **Endless re-testing**: a steady analog channel was re-probed every 90 s forever (several decoder processes each time);
   now backs off from 1.5 minutes up to an hour.
+* **The "Identify signal under the cursor" button in the SDRstar panel crashed the app** (found driving the whole GUI): the
+  code decided whether to call `endDisabled()` from state that the click itself had just changed, so ImGui's style stack
+  was popped once too often. The condition is now evaluated once.
+* **The SDRstar panel's settings were never saved** (found by restarting the GUI and looking at the file): the settings
+  file was only ever written when the app created it, so every start began with the defaults. Auto-save is now on, and
+  hidden tips are written immediately.
+* **Decoded voice from the single-voice modes played at twice the pitch and speed**: DSD-neo writes P25 Phase 1, NXDN,
+  D-STAR, YSF, dPMR, M17 and ProVoice as mono; SDRstar always read stereo. The earlier tests only counted audio frames
+  and checked that they were not silence. Now `dsdOutputChannels()` knows each mode and the tests measure the pitch.
+* **Choppy voice and a frozen app with two audio streams**: the audio callback of SDR++'s PortAudio sink waits for a
+  whole block, with no buffering in front of it for SDRstar's 20 ms voice frames; and with the silent "SDRstar Voice" stream
+  on the same device as the radio's, CoreAudio's single I/O thread was held up. See ARCHITECTURE.md, *Voice playback*.
+* **Background work competed with the interface**: automatic identification starts several decoder processes at once,
+  parsed every log line with up to eight regular expressions under the lock the interface polls, and re-read their logs
+  every frame. Decoders now run at lower priority, the regular expressions only run on lines that can match and outside the
+  lock, and the evidence is re-evaluated five times a second instead of every frame.
 * **Detector design problems found with real recordings**: spectral flatness does not separate digital from analog
   (so no label is derived from it); a slow average missed bursts (instantaneous presence added); edge-of-band
   skirts looked like signals (edge guard added); the label said "control channel?" far too often (facts on the label,
@@ -105,6 +126,10 @@ nothing for it). CI therefore only fails on sanitizer *reports*.
 
 ## 6. What could not be tested here
 
+* **The audio freeze and the audio smoothness on a real Mac**: the cause was found by reading SDR++'s sink code and
+  confirmed in isolation (the unpatched ring-buffer read never returns on a silent stream), the voice path was run end to
+  end on Linux (frames reach the audio thread at the right rate), but CoreAudio itself, and how the voice *sounds*, could
+  not be run here.
 * **A real RTL-SDR on a real Mac**: no hardware and no Mac were available. Untested: USB streaming, real retune latency,
   audio output device handling, the GUI's OpenGL window on a real display (GitHub's Mac runners have no usable window
   server, so CI only proves that every plug-in loads and a headless launch works).

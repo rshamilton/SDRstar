@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 
 #include <gui/style.h>
@@ -67,15 +68,18 @@ void SmartUi::drawLabels(const ImGui::WaterFall::FFTRedrawArgs& a) {
     const float pad = 3.0f * style::uiScale;
     const float rowH = fs + 2 * pad + 2.0f;
 
-    std::vector<sdrstar::DetectedSignal> sigs = eng_.signals();
+    const SmartEngine::SignalList list = eng_.signals();
+    labelOrder_.clear();
+    for (const auto& s : *list) { labelOrder_.push_back(&s); }
     // strongest first so important labels win collisions
-    std::sort(sigs.begin(), sigs.end(), [](const sdrstar::DetectedSignal& x, const sdrstar::DetectedSignal& y) { return x.snrDb > y.snrDb; });
+    std::sort(labelOrder_.begin(), labelOrder_.end(), [](const sdrstar::DetectedSignal* x, const sdrstar::DetectedSignal* y) { return x->snrDb > y->snrDb; });
 
     struct Box { float x0, x1; };
     std::vector<Box> rows[4];
     const float top = a.min.y + 2.0f;
     int drawn = 0;
-    for (const auto& s : sigs) {
+    for (const sdrstar::DetectedSignal* sp : labelOrder_) {
+        const sdrstar::DetectedSignal& s = *sp;
         if (s.freqHz < a.lowFreq || s.freqHz > a.highFreq) { continue; }
         if (!s.present && s.identified.empty()) { continue; }
         const float cx = a.min.x + (float)((s.freqHz - a.lowFreq) * a.freqToPixelRatio);
@@ -157,6 +161,15 @@ void SmartUi::drawCard(const ImGui::WaterFall::FFTRedrawArgs& a) {
         lineSizes.push_back(sz);
         h += 5.0f * u + sz.y;
     }
+    // tips: grey explanatory text with a small "x" at the right that hides it for good
+    const float tipX = 14.0f * u;
+    const float tipW = innerW - tipX - 6.0f * u;
+    std::vector<ImVec2> tipSizes;
+    for (const auto& t : m.tips) {
+        ImVec2 sz = font->CalcTextSizeA(smallSize, FLT_MAX, tipW, t.text.c_str());
+        tipSizes.push_back(sz);
+        h += 5.0f * u + std::max(sz.y, tipX);
+    }
     ImVec2 wsz(0, 0);
     if (!m.warning.empty()) {
         wsz = font->CalcTextSizeA(smallSize, FLT_MAX, innerW, m.warning.c_str());
@@ -221,6 +234,18 @@ void SmartUi::drawCard(const ImGui::WaterFall::FFTRedrawArgs& a) {
         dl->AddText(font, smallSize, ImVec2(tx, y), IM_COL32(140, 152, 170, 255), m.lines[i].c_str(), NULL, innerW);
         y += lineSizes[i].y;
     }
+    const ImVec2 mouse = ImGui::GetMousePos();
+    for (size_t i = 0; i < m.tips.size(); ++i) {
+        y += 5.0f * u;
+        dl->AddText(font, smallSize, ImVec2(tx, y), IM_COL32(140, 152, 170, 255), m.tips[i].text.c_str(), NULL, tipW);
+        ImVec2 xmin(tx + innerW - tipX, y), xmax(xmin.x + tipX, xmin.y + tipX);
+        const bool xhover = mouse.x >= xmin.x && mouse.x <= xmax.x && mouse.y >= xmin.y && mouse.y <= xmax.y;
+        dl->AddRectFilled(xmin, xmax, xhover ? IM_COL32(90, 60, 66, 255) : IM_COL32(32, 38, 52, 255), 3.0f * u);
+        ImVec2 xl = font->CalcTextSizeA(smallSize * 0.9f, FLT_MAX, 0, "x");
+        dl->AddText(font, smallSize * 0.9f, ImVec2(xmin.x + (tipX - xl.x) / 2, xmin.y + (tipX - xl.y) / 2), xhover ? IM_COL32(240, 225, 225, 255) : IM_COL32(150, 160, 178, 255), "x");
+        hits_.push_back({xmin, xmax, ACT_HIDE_TIP, true, m.tips[i].key});
+        y += std::max(tipSizes[i].y, tipX);
+    }
     if (!m.warning.empty()) {
         y += 6.0f * u;
         dl->AddText(font, smallSize, ImVec2(tx, y), IM_COL32(255, 120, 120, 255), m.warning.c_str(), NULL, innerW);
@@ -228,7 +253,6 @@ void SmartUi::drawCard(const ImGui::WaterFall::FFTRedrawArgs& a) {
     }
 
     // --- buttons ---
-    const ImVec2 mouse = ImGui::GetMousePos();
     if (rowsOfButtons) {
         y += 8.0f * u;
         float bx = 0;
@@ -246,7 +270,7 @@ void SmartUi::drawCard(const ImGui::WaterFall::FFTRedrawArgs& a) {
             if (!b.enabled) { fill = IM_COL32(40, 44, 54, 255); }
             dl->AddRectFilled(bmin, bmax, fill, 4.0f * u);
             dl->AddText(font, smallSize, ImVec2(bmin.x + 10.0f * u, bmin.y + (btnH - lt.y) / 2), b.enabled ? IM_COL32(240, 244, 250, 255) : IM_COL32(120, 128, 142, 255), b.label.c_str());
-            hits_.push_back({bmin, bmax, b.action, b.enabled});
+            hits_.push_back({bmin, bmax, b.action, b.enabled, std::string()});
             bx += bw + 6.0f * u;
         }
     }
@@ -259,7 +283,7 @@ void SmartUi::drawCard(const ImGui::WaterFall::FFTRedrawArgs& a) {
         dl->AddRectFilled(bmin, bmax, hover ? IM_COL32(90, 60, 66, 255) : IM_COL32(36, 42, 56, 255), 4.0f * u);
         ImVec2 lt = font->CalcTextSizeA(smallSize, FLT_MAX, 0, "x");
         dl->AddText(font, smallSize, ImVec2(bmin.x + (s - lt.x) / 2, bmin.y + (s - lt.y) / 2), IM_COL32(220, 225, 235, 255), "x");
-        hits_.push_back({bmin, bmax, ACT_DISMISS, true});
+        hits_.push_back({bmin, bmax, ACT_DISMISS, true, std::string()});
     }
 }
 
@@ -276,7 +300,8 @@ void SmartUi::onInput(ImGui::WaterFall::InputHandlerArgs, void* ctx) {
     for (const auto& h : u->hits_) {
         if (h.enabled && mp.x >= h.min.x && mp.x <= h.max.x && mp.y >= h.min.y && mp.y <= h.max.y) {
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { u->eng_.doAction(h.action); }
+            if (h.action == ACT_HIDE_TIP) { ImGui::SetTooltip("Hide this tip for good.\nTurn tips back on in the SDRstar panel."); }
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { u->eng_.doAction(h.action, h.arg); }
             return;
         }
     }
@@ -300,6 +325,13 @@ void SmartUi::drawMenu() {
 
     changed |= ImGui::Checkbox("Label signals on the waterfall##sdrstar", &s.showLabels);
     changed |= ImGui::Checkbox("Quietly identify steady digital signals##sdrstar", &s.autoIdentify);
+    changed |= ImGui::Checkbox("Auto-decode identified signals##sdrstar", &s.autoDecode);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("ON: rest the cursor on a signal that has been identified (about half a second), or press Identify and let\n"
+                          "it find a protocol, and decoding starts by itself (a trunked system's control channel is followed).\n"
+                          "It never interrupts a decoder that is already running, and after you press Stop it waits until you\n"
+                          "move the cursor to somewhere new.");
+    }
     ImGui::TextUnformatted("Sensitivity: signal must rise this many dB above noise");
     ImGui::SetNextItemWidth(w);
     float sens = (float)s.sensitivityDb;
@@ -309,11 +341,27 @@ void SmartUi::drawMenu() {
     }
     if (ImGui::IsItemHovered()) { ImGui::SetTooltip("How far above the noise a signal must rise to be labelled.\nLower finds weaker signals, higher gives fewer false labels."); }
 
+    {
+        bool tipsOn = s.tips.enabled();
+        if (ImGui::Checkbox("Show explanatory tips on cards##sdrstar", &tipsOn)) {
+            s.tips.setEnabled(tipsOn);
+            changed = true;
+        }
+        if (s.tips.hiddenCount() > 0) {
+            char lbl[96];
+            std::snprintf(lbl, sizeof lbl, "Bring back %d hidden tip%s##sdrstar_tips", (int)s.tips.hiddenCount(), s.tips.hiddenCount() == 1 ? "" : "s");
+            if (ImGui::Button(lbl, ImVec2(w, 0))) { eng_.restoreTips(); }
+        }
+    }
+
     ImGui::Spacing();
     const bool busy = eng_.jobKind() != JobKind::None;
-    if (!eng_.cursorValid() || eng_.jobKind() == JobKind::Probing || !eng_.decoderAvailable()) { style::beginDisabled(); }
-    if (ImGui::Button("Identify signal under the cursor##sdrstar", ImVec2(w, 0))) { eng_.doAction(ACT_IDENTIFY); }
-    if (!eng_.cursorValid() || eng_.jobKind() == JobKind::Probing || !eng_.decoderAvailable()) { style::endDisabled(); }
+    // Decide once: pressing the button changes the job state, and begin/endDisabled must stay paired.
+    const bool identifyBlocked = !eng_.cursorValid() || eng_.jobKind() == JobKind::Probing || !eng_.decoderAvailable();
+    if (identifyBlocked) { style::beginDisabled(); }
+    const bool identifyPressed = ImGui::Button("Identify signal under the cursor##sdrstar", ImVec2(w, 0));
+    if (identifyBlocked) { style::endDisabled(); }
+    if (identifyPressed) { eng_.doAction(ACT_IDENTIFY); }
 
     ImGui::Spacing();
     ImGui::Text("Status");
@@ -347,7 +395,7 @@ void SmartUi::drawMenu() {
         if (!eng_.helperAvailable(ids[pick])) { ImGui::TextDisabled("This decoder was not found in the app bundle."); }
     }
     if (eng_.jobKind() == JobKind::Helper) {
-        auto ls = eng_.helperLines(120);
+        auto ls = eng_.helperLines(80);
         if (ImGui::TreeNodeEx("Messages##sdrstar_msgs", ImGuiTreeNodeFlags_DefaultOpen)) {
             if (ls.empty()) { ImGui::TextDisabled("Nothing received yet."); }
             for (auto it = ls.rbegin(); it != ls.rend(); ++it) {
